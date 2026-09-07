@@ -626,3 +626,45 @@ tbody tr:hover td { background: var(--surface-2); }
   text-decoration: none; transition: color .15s;
 }
 a.card-liga:hover { color: var(--accent); }
+
+/* ---------------------------------------------- Editor de partidas */
+.barra-edicion { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+
+.entrada-cantidad {
+  width: 62px; padding: 5px 7px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: rgba(0,0,0,.22); color: var(--text);
+  font-size: 12.5px; font-family: inherit;
+  font-variant-numeric: tabular-nums;
+}
+.entrada-cantidad:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+
+.entrada-nota {
+  width: 100%; margin-top: 5px; padding: 4px 7px;
+  border: 1px solid var(--border-light); border-radius: 6px;
+  background: rgba(0,0,0,.18); color: var(--text-2);
+  font-size: 11px; font-family: inherit;
+}
+.entrada-nota::placeholder { color: var(--text-3); }
+.entrada-nota:focus { outline: none; border-color: var(--accent); color: var(--text); }
+
+.agregar-partida {
+  display: flex; gap: 8px; align-items: center;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px dashed var(--border);
+}
+.agregar-partida select {
+  flex: 1; min-width: 0; padding: 6px 9px;
+  border: 1px solid var(--border); border-radius: var(--radius);
+  background: rgba(0,0,0,.22); color: var(--text);
+  font-size: 12.5px; font-family: inherit;
+}
+.agregar-partida select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+.agregar-partida select option { background: var(--surface-2); }
+
+/* El cajón es flex en columna para que el iframe del PDF pueda crecer.
+   Efecto secundario: los demás hijos se encogen cuando el contenido no
+   cabe, y un .table-wrap (que tiene overflow) puede colapsar a altura 0.
+   Se ve al editar partidas, donde aparecen más elementos. */
+.cajon-cuerpo > * { flex-shrink: 0; }
+.cajon-cuerpo .visor-pdf { flex-shrink: 1; }

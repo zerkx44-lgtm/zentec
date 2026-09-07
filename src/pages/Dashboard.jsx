@@ -26,9 +26,16 @@ function diasDesde(iso) {
   return Math.floor((Date.now() - d.getTime()) / 86400000)
 }
 
-function fechaCorta(iso) {
-  if (!iso) return '—'
-  const d = new Date(iso)
+function fechaCorta(valor) {
+  if (!valor) return '—'
+  // Los `date` de Postgres llegan como "2026-09-03"; partirlos evita que el
+  // navegador los interprete en UTC y muestre el día anterior.
+  const txt = String(valor)
+  if (/^\d{4}-\d{2}-\d{2}$/.test(txt.slice(0, 10)) && !txt.includes('T')) {
+    const [a, m, d] = txt.split('-')
+    return `${d}/${m}/${a}`
+  }
+  const d = new Date(valor)
   return isNaN(d) ? '—' : d.toLocaleDateString('es-MX')
 }
 
@@ -50,7 +57,7 @@ export default function Dashboard() {
         .gte('created_at', haceUnaSemana)
         .order('created_at', { ascending: false }),
       supabase.from('cotizaciones')
-        .select('id, consecutivo, total, estado, created_at, enviada_at, clientes(nombre)')
+        .select('id, consecutivo, total, estado, fecha, created_at, enviada_at, clientes(nombre)')
         .order('consecutivo', { ascending: false }),
       supabase.from('ordenes_trabajo').select('id, estado')
     ])
