@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Zentec — Prueba de estilos</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/tabler-icons.min.css">
+  <link rel="stylesheet" href="/src/index.css">
+</head>
+<body>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-logo"><h1>ZENTEC</h1><p>Sistema de gestión</p></div>
+    <nav class="nav-section">
+      <a class="nav-item active" href="#"><i class="ti ti-layout-dashboard"></i><span>Dashboard</span></a>
+      <a class="nav-item" href="#"><i class="ti ti-file-invoice"></i><span>Cotizaciones</span></a>
+      <a class="nav-item" href="#"><i class="ti ti-users"></i><span>Clientes</span></a>
+      <a class="nav-item" href="#"><i class="ti ti-box"></i><span>Productos</span></a>
+      <a class="nav-item" href="#"><i class="ti ti-tool"></i><span>Órdenes trabajo</span></a>
+      <a class="nav-item" href="#"><i class="ti ti-receipt"></i><span>Facturas</span></a>
+    </nav>
+    <div class="nav-bottom">
+      <a class="nav-item" href="#"><i class="ti ti-settings"></i><span>Configuración</span></a>
+      <div class="usuario-box">
+        <div class="usuario-datos">
+          <div class="usuario-avatar">M</div>
+          <div class="usuario-texto">
+            <span class="usuario-nombre">Marcos Sánchez</span>
+            <span class="usuario-rol">admin</span>
+          </div>
+        </div>
+        <button class="btn btn-sm"><i class="ti ti-logout"></i></button>
+      </div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-inner">
+      <div class="page-header">
+        <span class="page-title">Dashboard</span>
+        <button class="btn btn-primary"><i class="ti ti-plus"></i> Nueva cotización</button>
+      </div>
+
+      <div class="metrics">
+        <div class="metric"><div class="metric-label">Prospectos esta semana</div><div class="metric-value">14</div><div class="metric-sub">+3 vs. semana pasada</div></div>
+        <div class="metric"><div class="metric-label">Por revisar</div><div class="metric-value">6</div></div>
+        <div class="metric"><div class="metric-label">Enviadas sin respuesta</div><div class="metric-value">9</div></div>
+        <div class="metric"><div class="metric-label">Órdenes abiertas</div><div class="metric-value">$184,320</div></div>
+      </div>
+
+      <div class="search-wrap"><input placeholder="Buscar por cliente, folio o modelo..." /></div>
+
+      <div class="card">
+        <div class="card-title">Cotizaciones recientes</div>
+        <div class="table-wrap">
+          <table>
+            <thead><tr><th>Folio</th><th>Cliente</th><th>Total</th><th>Fecha</th><th>Estado</th><th></th></tr></thead>
+            <tbody>
+              <tr><td><strong>COT-1026</strong></td><td>Hotel Costa Azul</td><td>$48,900.00</td><td>02/09/2026</td><td><span class="badge badge-green">aprobada</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1025</strong></td><td>Farmacia del Puerto</td><td>$12,450.00</td><td>01/09/2026</td><td><span class="badge badge-blue">enviada</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1024</strong></td><td>Condominios Diamante</td><td>$96,780.00</td><td>31/08/2026</td><td><span class="badge badge-amber">en_revision</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1023</strong></td><td>Taller Mecánico Rivera</td><td>$7,200.00</td><td>30/08/2026</td><td><span class="badge badge-gray">borrador</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1022</strong></td><td>Escuela Primaria Juárez</td><td>$31,050.00</td><td>29/08/2026</td><td><span class="badge badge-red">rechazada</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1021</strong></td><td>Restaurante La Cima</td><td>$22,900.00</td><td>28/08/2026</td><td><span class="badge badge-green">aprobada</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1020</strong></td><td>Bodega Central Acapulco</td><td>$154,300.00</td><td>27/08/2026</td><td><span class="badge badge-blue">enviada</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+              <tr><td><strong>COT-1019</strong></td><td>Clínica Santa Fe</td><td>$63,400.00</td><td>26/08/2026</td><td><span class="badge badge-amber">en_revision</span></td><td><button class="btn btn-sm"><i class="ti ti-edit"></i></button></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Formulario</div>
+        <div class="form-grid">
+          <div class="form-group"><label>Nombre</label><input value="Cámara domo 4MP" /></div>
+          <div class="form-group"><label>Modelo / SKU</label><input placeholder="ej. DS-2CD1143" /></div>
+          <div class="form-group"><label>Precio</label><input type="number" value="2450" /></div>
+          <div class="form-group"><label>Estado</label><select><option>Activo</option><option>Inactivo</option></select></div>
+          <div class="form-group form-full"><label>Descripción</label><textarea rows="2">Domo fijo para interior con visión nocturna.</textarea></div>
+        </div>
+        <div style="margin-top:1rem; display:flex; gap:8px; justify-content:flex-end;">
+          <button class="btn">Cancelar</button>
+          <button class="btn btn-primary">Guardar</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">Avisos y vacío</div>
+        <div class="alert alert-success"><i class="ti ti-check"></i><span>Producto guardado</span></div>
+        <div class="alert alert-error"><i class="ti ti-alert-circle"></i><span>Correo o contraseña incorrectos.</span></div>
+        <div class="empty"><i class="ti ti-box"></i><p>Sin productos registrados</p></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<div class="modal-overlay" style="position:static; padding:2rem; background:transparent; backdrop-filter:none;">
+  <div class="modal">
+    <div class="modal-header"><span class="modal-title">Editar producto</span><button class="btn btn-sm"><i class="ti ti-x"></i></button></div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group form-full"><label>Nombre *</label><input value="NVR 8 canales" /></div>
+        <div class="form-group"><label>Precio *</label><input value="6800" /></div>
+        <div class="form-group"><label>Modelo</label><input value="DS-7608NI" /></div>
+      </div>
+    </div>
+    <div class="modal-footer"><button class="btn">Cancelar</button><button class="btn btn-primary">Guardar</button></div>
+  </div>
+</div>
+</body>
+</html>

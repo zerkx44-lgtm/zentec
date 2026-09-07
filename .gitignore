@@ -1,0 +1,13 @@
+# Dependencias
+node_modules/
+
+# Build — se genera con `npm run build`, no se versiona
+dist/
+
+# Credenciales. La publishable key acaba dentro del build de todos modos,
+# pero el archivo no tiene por qué vivir en el repo.
+.env
+.env.local
+
+# macOS
+.DS_Store
