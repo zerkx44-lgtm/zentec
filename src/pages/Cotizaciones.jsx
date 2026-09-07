@@ -54,6 +54,12 @@ export default function Cotizaciones() {
   // partidas, porque regenerarlo es cosa del flujo de n8n, no del panel.
   const [pdfViejo, setPdfViejo] = useState(() => new Set())
 
+  // `pdf_vigente` la pone en false el trigger al cambiar partidas, y n8n la
+  // regresa a true al generar el PDF. Se acepta que la columna todavía no
+  // exista: en ese caso solo se pierde la marca entre sesiones.
+  const pdfDesfasado = (c) =>
+    !!c?.pdf_url && (c.pdf_vigente === false || pdfViejo.has(c.id))
+
   // Alta de cotización desde el panel
   const [modalNueva, setModalNueva] = useState(false)
   const [clientes, setClientes] = useState([])
@@ -316,8 +322,14 @@ export default function Cotizaciones() {
                     <td onClick={e => e.stopPropagation()}>
                       <div className="acciones">
                         {c.pdf_url && (
-                          <a className="btn btn-sm" href={c.pdf_url} target="_blank" rel="noreferrer" title="Abrir PDF">
-                            <i className="ti ti-file-type-pdf" />
+                          <a
+                            className={'btn btn-sm' + (pdfDesfasado(c) ? ' btn-alerta' : '')}
+                            href={c.pdf_url} target="_blank" rel="noreferrer"
+                            title={pdfDesfasado(c)
+                              ? 'El PDF no coincide con las partidas: hay que regenerarlo'
+                              : 'Abrir PDF'}
+                          >
+                            <i className={pdfDesfasado(c) ? 'ti ti-file-alert' : 'ti ti-file-type-pdf'} />
                           </a>
                         )}
                         <button className="btn btn-sm" onClick={() => abrir(c)} title="Ver detalle">
@@ -381,7 +393,7 @@ export default function Cotizaciones() {
                       {guardando && <span className="pista">Guardando...</span>}
                     </div>
 
-                    {pdfViejo.has(abierta.id) && abierta.pdf_url && (
+                    {pdfDesfasado(abierta) && (
                       <div className="alert alert-error">
                         <i className="ti ti-file-alert" />
                         <span>
@@ -528,7 +540,7 @@ export default function Cotizaciones() {
               ) : (
                 abierta.pdf_url
                   ? <>
-                      {pdfViejo.has(abierta.id) && (
+                      {pdfDesfasado(abierta) && (
                         <div className="alert alert-error">
                           <i className="ti ti-file-alert" />
                           <span>Este PDF es anterior a los cambios que acabas de hacer.</span>

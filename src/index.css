@@ -668,3 +668,7 @@ a.card-liga:hover { color: var(--accent); }
    Se ve al editar partidas, donde aparecen más elementos. */
 .cajon-cuerpo > * { flex-shrink: 0; }
 .cajon-cuerpo .visor-pdf { flex-shrink: 1; }
+
+/* Botón que señala algo que necesita atención (PDF desfasado) */
+.btn-alerta { color: var(--amber); border-color: rgba(251,191,36,.35); }
+.btn-alerta:hover { background: var(--amber-light); border-color: rgba(251,191,36,.5); }
