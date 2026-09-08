@@ -136,6 +136,11 @@ export default function Cotizaciones() {
       return
     }
 
+    if (!data) {
+      setMsg({ type: 'error', text: 'La cotización se creó pero no se pudo leer de vuelta. Recarga la pantalla.' })
+      return
+    }
+
     setModalNueva(false)
     setNueva({ cliente_id: '', solicitud_id: '', con_iva: false })
     setMsg(null)
@@ -210,7 +215,11 @@ export default function Cotizaciones() {
 
   async function cambiarCantidad(partida, valor) {
     const cant = parseInt(valor, 10)
-    if (!cant || cant < 1) return
+    if (!cant || cant < 1) {
+      setMsg({ type: 'error', text: 'La cantidad debe ser un número mayor que cero.' })
+      await cargarPartidas(abierta.id)   // devuelve el campo a su valor real
+      return
+    }
     setGuardando(true)
     const { error } = await supabase
       .from('cotizacion_productos')
@@ -227,7 +236,7 @@ export default function Cotizaciones() {
       .update({ descripcion_extra: texto.trim() || null })
       .eq('id', partida.id)
     if (error) { setMsg({ type: 'error', text: 'No se pudo guardar la nota: ' + error.message }); return }
-    await cargarPartidas(abierta.id)
+    await refrescar(abierta.id)
   }
 
   async function borrarPartida(partida) {
@@ -241,10 +250,19 @@ export default function Cotizaciones() {
   }
 
   async function cambiarEstado(c, estado) {
-    const { error } = await supabase.from('cotizaciones').update({ estado }).eq('id', c.id)
+    const cambios = { estado }
+
+    // El tablero mide "días sin respuesta" desde `enviada_at`. Si se marca
+    // enviada sin sellar la fecha, cae en `created_at` y una cotización
+    // recién enviada aparece como rezagada desde el primer día.
+    if (estado === 'enviada' && !c.enviada_at) {
+      cambios.enviada_at = new Date().toISOString()
+    }
+
+    const { error } = await supabase.from('cotizaciones').update(cambios).eq('id', c.id)
     if (error) { setMsg({ type: 'error', text: 'No se pudo cambiar el estado: ' + error.message }); return }
-    setCotizaciones(prev => prev.map(x => x.id === c.id ? { ...x, estado } : x))
-    if (abierta?.id === c.id) setAbierta({ ...abierta, estado })
+    setCotizaciones(prev => prev.map(x => x.id === c.id ? { ...x, ...cambios } : x))
+    if (abierta?.id === c.id) setAbierta({ ...abierta, ...cambios })
   }
 
   // Cambiar con_iva mueve el total, y de eso se encarga otro trigger.

@@ -1,4 +1,5 @@
 import { useEffect, useState, useRef, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
 // Cuántos mensajes se traen para armar la lista de contactos. Suficiente
@@ -46,12 +47,22 @@ export default function Conversaciones() {
   const [busqueda, setBusqueda] = useState('')
   const [msg, setMsg] = useState(null)
   const finRef = useRef(null)
+  const [params, setParams] = useSearchParams()
 
   useEffect(() => { cargarContactos() }, [])
 
   useEffect(() => {
     finRef.current?.scrollIntoView({ block: 'end' })
   }, [mensajes])
+
+  // Se llega aquí desde Prospectos con ?numero=... para abrir ese chat
+  // directo, en vez de dejar al usuario buscándolo en la lista.
+  useEffect(() => {
+    const numero = params.get('numero')
+    if (!numero || cargando || activo) return
+    abrirChat(numero)
+    setParams({}, { replace: true })
+  }, [params, cargando, activo])
 
   async function cargarContactos() {
     setCargando(true)
@@ -124,10 +135,13 @@ export default function Conversaciones() {
   }
 
   const q = busqueda.toLowerCase().trim()
+  // Solo se compara contra el teléfono si se escribieron dígitos: buscar
+  // por dígitos vacíos hace que todas las filas con teléfono coincidan.
+  const digitos = q.replace(/\D/g, '')
   const filtrados = useMemo(() => contactos.filter(c => {
     if (!q) return true
     const nombre = (nombreDe(c.numero) || '').toLowerCase()
-    return c.numero.includes(q.replace(/\D/g, '')) ||
+    return (digitos && c.numero.includes(digitos)) ||
            nombre.includes(q) ||
            (c.ultimo || '').toLowerCase().includes(q)
   }), [contactos, q, prospectos])

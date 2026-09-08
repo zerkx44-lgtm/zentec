@@ -672,3 +672,6 @@ a.card-liga:hover { color: var(--accent); }
 /* Botón que señala algo que necesita atención (PDF desfasado) */
 .btn-alerta { color: var(--amber); border-color: rgba(251,191,36,.35); }
 .btn-alerta:hover { background: var(--amber-light); border-color: rgba(251,191,36,.5); }
+
+/* Aviso informativo, ni éxito ni error */
+.alert-aviso { background: var(--amber-light); color: var(--amber); border-color: rgba(251,191,36,.25); }

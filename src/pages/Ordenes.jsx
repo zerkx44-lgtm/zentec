@@ -16,25 +16,41 @@ export default function Ordenes() {
 
   async function cargar() {
     setLoading(true)
-    const [{ data: ords }, { data: cots }] = await Promise.all([
+    const [ords, cots] = await Promise.all([
       supabase.from('ordenes_trabajo').select('*, cotizaciones(consecutivo, clientes(nombre))').order('created_at', { ascending: false }),
       supabase.from('cotizaciones').select('id, consecutivo, clientes(nombre)').eq('estado', 'aprobada')
     ])
-    setOrdenes(ords || [])
-    setCotizaciones(cots || [])
+    if (ords.error) setMsg({ type: 'error', text: 'No se pudieron cargar las órdenes: ' + ords.error.message })
+    setOrdenes(ords.data || [])
+    setCotizaciones(cots.data || [])
     setLoading(false)
   }
 
   async function guardar() {
-    if (!form.descripcion.trim()) return setMsg({ type: 'error', text: 'La descripción es requerida' })
+    if (!form.descripcion?.trim()) return setMsg({ type: 'error', text: 'La descripción es requerida' })
     setGuardando(true)
+
+    // Solo las columnas de la tabla. `form` trae la fila completa que devolvió
+    // el select, incluida la relación anidada `cotizaciones`, y mandarla hace
+    // que PostgREST rechace el update entero.
+    // Las cadenas vacías van como null: '' no es un uuid ni una fecha válida.
+    const payload = {
+      cotizacion_id: form.cotizacion_id || null,
+      descripcion: form.descripcion.trim(),
+      estado: form.estado || 'pendiente',
+      fecha_inicio: form.fecha_inicio || null,
+      fecha_fin: form.fecha_fin || null
+    }
+
     const { error } = form.id
-      ? await supabase.from('ordenes_trabajo').update(form).eq('id', form.id)
-      : await supabase.from('ordenes_trabajo').insert(form)
-    if (error) { setMsg({ type: 'error', text: error.message }); setGuardando(false); return }
-    setMsg({ type: 'success', text: 'Orden guardada' })
-    setTimeout(() => { setModal(false); setMsg(null); cargar() }, 1000)
+      ? await supabase.from('ordenes_trabajo').update(payload).eq('id', form.id)
+      : await supabase.from('ordenes_trabajo').insert(payload)
+
     setGuardando(false)
+    if (error) { setMsg({ type: 'error', text: error.message }); return }
+    setModal(false)
+    setMsg(null)
+    cargar()
   }
 
   const estadoBadge = (e) => {
@@ -66,7 +82,7 @@ export default function Ordenes() {
                     <td style={{ maxWidth: 220, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.descripcion}</td>
                     <td>{o.fecha_inicio ? new Date(o.fecha_inicio).toLocaleDateString('es-MX') : '—'}</td>
                     <td>{o.fecha_fin ? new Date(o.fecha_fin).toLocaleDateString('es-MX') : '—'}</td>
-                    <td><span className={`badge ${estadoBadge(o.estado)}`}>{o.estado.replace('_', ' ')}</span></td>
+                    <td><span className={`badge ${estadoBadge(o.estado)}`}>{(o.estado || 'pendiente').replace('_', ' ')}</span></td>
                     <td><button className="btn btn-sm" onClick={() => { setForm(o); setMsg(null); setModal(true) }}><i className="ti ti-edit" /></button></td>
                   </tr>
                 ))}

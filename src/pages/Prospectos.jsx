@@ -105,6 +105,9 @@ export default function Prospectos() {
   const servicios = [...new Set(filas.map(f => f.servicio).filter(Boolean))].sort()
 
   const q = busqueda.toLowerCase().trim()
+  // Sin dígitos escritos no se compara contra el número: includes('') es
+  // true y dejaría pasar todas las filas que tengan teléfono.
+  const digitos = q.replace(/\D/g, '')
   const filtradas = filas.filter(f => {
     if (etapa === 'abiertas' && f.etapa !== 'abierta' && f.etapa !== 'sin_solicitud') return false
     if (etapa === 'cerradas' && f.etapa !== 'cerrada') return false
@@ -116,7 +119,7 @@ export default function Prospectos() {
     if (servicio && f.servicio !== servicio) return false
     if (!q) return true
     return (f.nombre || '').toLowerCase().includes(q) ||
-           (f.numero || '').includes(q.replace(/\D/g, '')) ||
+           (digitos && (f.numero || '').includes(digitos)) ||
            (f.servicio || '').toLowerCase().includes(q) ||
            (f.detalles || '').toLowerCase().includes(q)
   })
@@ -205,7 +208,7 @@ export default function Prospectos() {
                             <>
                               <button
                                 className="btn btn-sm"
-                                onClick={() => navegar('/conversaciones')}
+                                onClick={() => navegar(`/conversaciones?numero=${encodeURIComponent(f.numero)}`)}
                                 title="Ver conversación"
                               >
                                 <i className="ti ti-messages" />

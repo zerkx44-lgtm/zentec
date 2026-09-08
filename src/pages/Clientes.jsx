@@ -136,12 +136,15 @@ export default function Clientes() {
   }
 
   const q = busqueda.toLowerCase().trim()
+  // Solo se compara contra el teléfono si se escribieron dígitos: buscar
+  // por dígitos vacíos hace que todas las filas con teléfono coincidan.
+  const digitos = q.replace(/\D/g, '')
   const filtrados = clientes.filter(c => {
     const coincide = !q ||
       c.nombre.toLowerCase().includes(q) ||
       (c.email || '').toLowerCase().includes(q) ||
       (c.rfc || '').toLowerCase().includes(q) ||
-      (c.telefono || '').includes(q.replace(/\D/g, '')) ||
+      (digitos && (c.telefono || '').includes(digitos)) ||
       (c.razon_social || '').toLowerCase().includes(q)
     if (!coincide) return false
     if (filtro === 'con_rfc') return !!c.rfc
