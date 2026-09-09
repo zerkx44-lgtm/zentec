@@ -304,6 +304,29 @@ datos reales conectados todavía.
 - **Un recibo de pago no es un comprobante fiscal y no lo rige el SAT.** El
   PDF debe decirlo en una línea, o algún cliente lo va a presentar como si lo
   fuera (8 de septiembre de 2026).
+- **La trampa de Homebrew NO es exclusiva de Node.** El documento de arranque
+  la registraba solo para `brew install node`. Instalar `gh` en esta Mac Intel
+  con macOS 26 hizo exactamente lo mismo: no hay paquete precompilado para
+  esta combinación, así que Homebrew bajó **Go** como dependencia, lo compiló
+  desde fuente (4 min 42 s) y luego compiló `gh`. Se predijo que `gh` no
+  caería en la trampa y sí cayó. Regla nueva: en esta Mac, **cualquier**
+  `brew install` puede terminar compilando desde fuente. Dar por hecho que
+  tarda, no que es instantáneo (8 de septiembre de 2026).
+- **`gh` necesita los alcances `repo` Y `read:org`; `git push` solo necesita
+  `repo`.** Por eso un token con solo `repo` sube ramas perfectamente pero
+  falla en `gh auth login` con `error validating token: missing required
+  scope 'read:org'`. Confunde porque el push ya había funcionado. El token
+  classic se edita y conserva su valor: basta marcar `read:org` y darle
+  Update token, sin generar uno nuevo. `workflow` aparece en el mensaje de
+  ayuda de `gh` pero solo hace falta para modificar workflows de Actions
+  (8 de septiembre de 2026).
+- **Git no tenía identidad configurada en esta Mac.** Sin `user.name` ni
+  `user.email`, los siete primeros commits quedaron firmados como
+  `Marcos <macbook@192.168.1.8>` — una dirección derivada del nombre de la
+  máquina. GitHub no puede ligarlos a la cuenta `zerkx44-lgtm`, así que
+  aparecen sin foto ni enlace al perfil. Se corrige para los commits futuros
+  con `git config --global user.email`; reescribir los viejos cambiaría todos
+  los hashes y no vale la pena por algo cosmético (8 de septiembre de 2026).
 
 ## Pendientes conocidos
 
