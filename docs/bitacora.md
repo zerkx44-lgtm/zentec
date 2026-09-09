@@ -2,6 +2,15 @@
 
 ## Estado actual
 
+**8 de septiembre de 2026 — corrección de un supuesto.** La bitácora del 7 de
+septiembre decía que "los botones del ciclo del dinero están desconectados".
+Es falso y da una impresión equivocada: `Facturas.jsx:31` y `Facturas.jsx:45`
+sí escriben dinero hoy, calculando `saldo_pendiente: Math.max(total -
+anticipo, 0)` en el navegador. Con RLS en `using (true)`, cualquiera con
+sesión iniciada puede poner un saldo en cero desde la consola sin registrar un
+pago, y no queda rastro. Lo que sí está desconectado son las funciones de
+orden/factura del bot: no hay ninguna llamada `.rpc(` en todo `src/`.
+
 Panel en producción en panel.zentec.solutions, actualizado el 7 de septiembre
 de 2026. Siete pantallas funcionando con datos reales: tablero, prospectos,
 conversaciones, cotizaciones, clientes, productos, órdenes, facturas y
@@ -22,13 +31,108 @@ sidebar y métricas, no sobre tablas.
 Existe una landing page en `landing/` dentro del mismo repo, con piel clara,
 opuesta a la del panel.
 
-Los seis commits del repo son locales: no se ha hecho `git push`.
+El repo ya está empujado a `origin/main`: apunta al mismo SHA que `HEAD`
+(65a2528), verificado el 8 de septiembre de 2026. Corrige la entrada anterior,
+que decía que los seis commits eran locales.
+
+El vocabulario de estados del panel ya coincide con los CHECK confirmados en
+`paso0-resultados.md`: `Cotizaciones.jsx:4` tiene los cinco exactos,
+`Ordenes.jsx:57` y `127-130` los cuatro. El paso 2 de ese documento se puede
+tachar (verificado el 8 de septiembre de 2026).
 
 Se crearon tres agentes en `~/.claude/agents/`: `zentec-arquitecto` (seguridad
 y arquitectura), `zentec-marketing` (publicidad digital) y `watson` (esta
 bitácora).
 
 ## Decisiones tomadas
+
+**8 de septiembre de 2026 — sesión sin código, de verificación y diseño.**
+No se tocó una sola línea de `src/`. El trabajo fue: verificar supuestos
+contra el código real, y diseñar el alcance de cobranza/recibos/agenda para el
+chat de base/n8n. El producto quedó en `~/Downloads/cobranza-recibos-y-agenda-
+para-el-chat.md`, sucesor de `cierre-del-ciclo-para-el-chat.md`.
+
+**8 de septiembre de 2026 — "facturación al final" significa el CFDI al
+final, no la cobranza.** Marcos aclaró que la cobranza (saldos, anticipos,
+pagos) se construye ahora; el CFDI se sigue timbrando por fuera del panel.
+
+**8 de septiembre de 2026 — se van a emitir recibos de pago para servicios,
+con control interno.** Alcance nuevo: ni "recibo" ni "pagos" aparecían en
+`paso0-resultados.md`, ni en el arranque del proyecto, ni en la bitácora, ni
+en el código, antes de esta sesión.
+
+**8 de septiembre de 2026 — el recibo cuelga de la cotización, no de la
+factura.** Así, si el cliente no pide factura, de todos modos recibe su
+comprobante de pago.
+
+**8 de septiembre de 2026 — Opción A: la cotización es el ancla de cobranza.**
+El saldo se muda a `cotizaciones`, `pagos` cuelga de ahí, y `facturas` se crea
+solo cuando el cliente pide factura. Se descartó la opción B (crear una fila
+en `facturas` para todos los clientes) porque generaría registros de
+"facturas" que no son facturas fiscales; ante el contador o el SAT esa tabla
+mentiría.
+
+**8 de septiembre de 2026 — matiz sobre la opción A: `facturas` no se toca.**
+La primera versión de la propuesta adelgazaba esa tabla; se decidió que todo
+sea aditivo, porque `subtotal` y `total` son `NOT NULL` ahí y no se sabe qué
+funciones `bot_*` la leen.
+
+**8 de septiembre de 2026 — `empresa_id` va denormalizada en `pagos`**, y se
+recomendó lo mismo para `ordenes_trabajo` y `facturas`, contra lo que sugería
+`paso0-resultados.md`. Motivo principal: una política RLS por join
+(`exists (select 1 from cotizaciones where ...)`) sobre una fila con
+`cotizacion_id` nulo devuelve falso, y la fila se vuelve invisible para todos,
+incluido su dueño. Motivo secundario: una política que se lee de un vistazo
+es una propiedad de seguridad, no un gusto estético.
+
+**8 de septiembre de 2026 — un pago no se borra, se cancela.** Un recibo que
+ya salió por correo existe en el mundo; si se borra de la base, en una
+discusión sobre cuánto se debe, el papel que tiene el cliente le gana a la
+pantalla. Corregir un pago es cancelarlo con motivo y registrar uno nuevo. Sin
+edición de monto.
+
+**8 de septiembre de 2026 — el folio del recibo va por secuencia dedicada,
+nunca `max(folio)+1`.** Con n8n registrando pagos en paralelo, dos recibos con
+el mismo folio a dos clientes distintos es un problema del que no se sale
+bien.
+
+**8 de septiembre de 2026 — los recibos se envían por correo desde n8n, con
+el correo propio de Zentec por SMTP, no desde el panel.** Una credencial de
+correo en el panel acabaría en el JavaScript público del navegador; si se
+roba, se usa para phishing firmado por `zentec.solutions`, y quemar la
+reputación del dominio significa que ni las cotizaciones le llegan ya a los
+clientes.
+
+**8 de septiembre de 2026 — el PDF del recibo va adjunto al correo, no
+publicado en una URL.** Trae nombre, monto y método de pago, y los folios son
+consecutivos: con URL pública predecible alguien podría recorrerlos y
+reconstruir la facturación completa de Zentec.
+
+**8 de septiembre de 2026 — el body del webhook de registrar pago lleva solo
+`pago_id`.** Si llevara el monto, un atacante podría mandar recibos por
+cantidades inventadas.
+
+**8 de septiembre de 2026 — se mantiene "repo aparte" para la agenda; no
+había conflicto con lo decidido antes.** La palabra "agenda" tapaba dos cosas
+distintas: la agenda-producto (citas para salones y consultorios, con su
+propio proyecto de Supabase, ver decisión del 7 de septiembre) y la
+agenda-operación de Zentec (cuándo va el técnico a instalar, que vive en
+`ordenes_trabajo`). El caso real que apareció hoy es el segundo, y es una
+pantalla más del panel de Zentec, no del repo de citas. Meterla ahí sería el
+error inverso: obligaría a ese build a cargar también la llave de Zentec.
+
+**8 de septiembre de 2026 — la orden es la cita; no se crea tabla `visitas`
+todavía.** Se agregan `hora_inicio`, `duracion_min` y `tecnico_id` a
+`ordenes_trabajo`. El día que aparezca la primera orden que haya que partir en
+dos visitas, se crea la tabla `visitas` y estas tres columnas se vuelven la
+primera visita de esa orden.
+
+**8 de septiembre de 2026 — la alarma para activar el paquete de seguridad
+(perfiles + RLS por empresa) es `select count(*) from auth.users`, no la
+intención de nadie.** "Mientras Marcos sea el único usuario" no se puede
+vigilar. Cuando entre el segundo usuario, en un solo movimiento: crear
+`perfiles`, meter el filtro por empresa dentro de las funciones `security
+definer`, y cambiar las políticas de `using (true)`.
 
 **7 de septiembre de 2026 — El panel de agenda va en un repo aparte, no como
 módulo del panel de Zentec.** El panel se conecta a Supabase desde el
@@ -88,6 +192,13 @@ desactualizado. Verificado contra `information_schema` en el commit 4c7156b.
 Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
+
+**8 de septiembre de 2026 — sesión de verificación y diseño, sin código.**
+No hubo commits. Se verificaron los supuestos de la bitácora y de
+`paso0-resultados.md` contra el código real de `src/`, y se detonó el diseño
+de cobranza/recibos/agenda tras un caso real en el chat del bot: un cliente
+aprobó una cotización y preguntó cuándo se le podía atender. Ver "decisiones
+tomadas" para el detalle completo y "pendientes conocidos" para lo que sigue.
 
 **7 de septiembre de 2026 — Arreglar los bugs que hacían que el panel
 mintiera (commit c02ef44).** Revisión completa de las siete pantallas: no
@@ -175,19 +286,78 @@ datos reales conectados todavía.
   documentos, gana lo verificado contra `information_schema` o contra el
   propio código, y se anota aquí cuál ganó.
 
+- **`max(folio)+1` en un folio de documento funciona con un usuario y falla
+  con concurrencia.** Con n8n registrando pagos en paralelo, dos recibos
+  pueden salir con el mismo folio a dos clientes distintos. Por eso el folio
+  de recibo usa secuencia dedicada (8 de septiembre de 2026).
+- **Una política RLS por join falla en filas huérfanas.** Un
+  `exists (select 1 from cotizaciones where ...)` sobre una fila con
+  `cotizacion_id` nulo devuelve falso: la fila queda invisible para todos,
+  incluido su dueño. Por eso `empresa_id` se denormaliza en vez de derivarse
+  por join (8 de septiembre de 2026).
+- **Un `select` suelto sobre `configuracion` se rompe en silencio el día que
+  se migre a `unique (empresa_id, clave)`:** empieza a devolver más de una
+  fila y toma una al azar. Una factura calculada con el anticipo de otra
+  empresa no da error visible, simplemente cobra mal. Por eso
+  `crear_factura_de_orden` debe leer la configuración por una función
+  auxiliar, no por un `select` directo (8 de septiembre de 2026).
+- **Un recibo de pago no es un comprobante fiscal y no lo rige el SAT.** El
+  PDF debe decirlo en una línea, o algún cliente lo va a presentar como si lo
+  fuera (8 de septiembre de 2026).
+
 ## Pendientes conocidos
 
-**Del lado de la base y n8n** (se trabajan en un chat aparte, no en Claude
-Code): las funciones de orden y factura, el vocabulario de estados con CHECK,
-las columnas `aprobada_at` / `rechazada_at` / `motivo_rechazo`, el webhook de
-regenerar PDF, las políticas RLS por empresa (hoy son `using (true)` para
-autenticados, provisional mientras haya un solo usuario), la tabla `perfiles`
-(no existe todavía), y el respaldo de `/local-files`, que no tiene copia
-automática.
+**8 de septiembre de 2026 — pendientes actualizados tras la sesión de
+verificación y diseño, sin código.**
 
-**Del lado del panel:** conectar los botones de crear orden y generar factura
-cuando existan las funciones correspondientes en la base, y el selector de
-motivo de rechazo en cotizaciones.
+**Del lado de la base y n8n:** todo el documento nuevo
+`~/Downloads/cobranza-recibos-y-agenda-para-el-chat.md` (columnas de cobranza
+en `cotizaciones`, tabla `pagos` con secuencia de folios, trigger de
+recálculo, funciones `registrar_pago` y `cancelar_pago`, `revoke`/`grant`,
+columnas de agenda en `ordenes_trabajo`, especificación del webhook de
+correo), más lo que ya venía pendiente: `crear_orden_de_cotizacion`, el
+default de 70% en `facturas.porcentaje_anticipo`, la fila `anticipo_default`
+en `configuracion` (nota: `Configuracion.jsx:22` ya la tiene cableada del lado
+del panel, falta del lado de la base), y la consulta de verificación de
+políticas para `anon` (debe devolver cero filas, sigue sin correrse). El
+vocabulario de estados con CHECK y las columnas `aprobada_at` /
+`rechazada_at` / `motivo_rechazo` ya no están en esta lista: se verificaron
+contra el código el 8 de septiembre y coinciden.
+
+**Punto de pausa marcado en el documento nuevo:** la consulta 4 de
+`paso0-resultados.md` lista qué funciones `bot_*` tocan `facturas` o
+`cotizaciones`. Si alguna escribe en `facturas`, hay que parar antes de crear
+el trigger de recálculo y avisar.
+
+**Advertencia operativa:** el paso 5 del documento nuevo (los `revoke`) rompe
+a propósito la pantalla de Facturas del panel. Dejará de guardar hasta que se
+reescriba para llamar a `registrar_pago`. Está avisado, no debe leerse como
+una falla cuando ocurra.
+
+**Del lado del panel (Claude Code), en orden de urgencia:** conectar
+`crear_orden_de_cotizacion` y quitar la opción "Sin cotización" de
+`Ordenes.jsx:108` — marcado como lo más urgente por el arquitecto, porque un
+cliente real ya aprobó una cotización y preguntó cuándo se le podía atender;
+pantalla de cobranza sobre `cotizaciones` + `pagos`; reescribir
+`Facturas.jsx`; calendario semanal de `ordenes_trabajo`; botón de enviar
+recibo; limpiar el filtro por `'terminada'` en `Dashboard.jsx:81` (estado
+fantasma, no existe en el CHECK de `ordenes_trabajo`, hoy inofensivo porque no
+hay filas con ese valor).
+
+**Preguntas abiertas para Marcos:** el plazo real de vencimiento de factura
+(los 30 días son un supuesto heredado, sin verificar); si el recibo lleva logo
+y datos fiscales o basta con folio, monto, concepto y método.
+
+**Supuesto marcado como tal:** el `check (monto > 0)` en `pagos` asume que no
+hay notas de crédito ni devoluciones. Si alguna vez se devuelve dinero a un
+cliente, ese check lo impide; se dejó estricto a propósito, revisar si cambia
+la operación.
+
+**Sin verificar, inferido, pendiente de confirmar en la base:** el tipo real
+de `ordenes_trabajo.fecha_inicio`/`fecha_fin` (si son `timestamptz`,
+`hora_inicio` sobra); si `ordenes_trabajo.cotizacion_id` es nullable; si
+`clientes.email` es nullable; si el correo de Zentec tiene SPF/DKIM
+configurados.
 
 **Botón de reenviar cotización por WhatsApp:** no se conecta hasta que exista
 plantilla aprobada por Meta (ver decisiones). Mientras tanto queda el enlace
