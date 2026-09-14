@@ -10,11 +10,13 @@ import Productos from './pages/Productos.jsx'
 import Ordenes from './pages/Ordenes.jsx'
 import Facturas from './pages/Facturas.jsx'
 import Configuracion from './pages/Configuracion.jsx'
+import { useTema } from './lib/tema.js'
 
 const claseNav = ({ isActive }) => 'nav-item' + (isActive ? ' active' : '')
 
 function Sidebar() {
   const { usuario, perfil, salir } = useAuth()
+  const [tema, setTema] = useTema()
   const nombre = perfil?.nombre || usuario?.email || ''
   const inicial = (nombre[0] || '?').toUpperCase()
 
@@ -56,6 +58,14 @@ function Sidebar() {
         <NavLink to="/configuracion" className={claseNav}>
           <i className="ti ti-settings" /><span>Configuración</span>
         </NavLink>
+
+        <div className="tema-selector" role="group" aria-label="Apariencia">
+          {[['auto', 'ti-device-desktop', 'Auto'], ['claro', 'ti-sun', 'Claro'], ['oscuro', 'ti-moon', 'Oscuro']].map(([valor, icono, texto]) => (
+            <button key={valor} className={tema === valor ? 'activo' : ''} onClick={() => setTema(valor)} aria-pressed={tema === valor} title={texto}>
+              <i className={`ti ${icono}`} /><span>{texto}</span>
+            </button>
+          ))}
+        </div>
 
         <div className="usuario-box">
           <div className="usuario-datos">

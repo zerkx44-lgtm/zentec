@@ -49,11 +49,90 @@
   --blue: #60a5fa;
   --blue-light: rgba(96, 165, 250, 0.13);
 
+  /* Valores que antes estaban fijos en las reglas */
+  --campo-bg: rgba(0, 0, 0, 0.22);
+  --campo-bg-2: rgba(0, 0, 0, 0.18);
+  --gris-bg: rgba(255, 255, 255, 0.07);
+  --scroll: rgba(255, 255, 255, 0.10);
+  --scroll-hover: rgba(255, 255, 255, 0.18);
+  --sombra: rgba(0, 0, 0, 0.75);
+
   --radius: 8px;
   --radius-lg: 12px;
 }
 
+
 html { color-scheme: dark; }
+
+/* =====================================================================
+   Tema claro. Solo redefine variables: las reglas no cambian. El tema lo
+   pone src/lib/tema.js en <html data-tema> antes de pintar, para que no
+   parpadee en oscuro al cargar.
+   ===================================================================== */
+:root[data-tema="claro"] {
+  color-scheme: light;
+
+  --bg: #f4f6fa;
+  --bg-alt: #eef1f6;
+  --surface: #ffffff;
+  --surface-2: #f7f9fc;
+  --surface-hover: #eef2f7;
+  --glass: rgba(255, 255, 255, 0.72);
+  --glass-strong: rgba(255, 255, 255, 0.88);
+
+  --border: rgba(15, 23, 42, 0.12);
+  --border-light: rgba(15, 23, 42, 0.07);
+  --border-strong: rgba(15, 23, 42, 0.20);
+
+  --text: #0f172a;
+  --text-2: #475569;
+  --text-3: #64748b;
+
+  /* El cian claro no se lee sobre blanco: se oscurece para texto e iconos. */
+  --accent: #0891b2;
+  --accent-2: #0e7490;
+  --accent-dim: rgba(8, 145, 178, 0.10);
+  --accent-glow: rgba(8, 145, 178, 0.22);
+
+  --green: #059669;
+  --green-dark: #047857;
+  --green-light: rgba(5, 150, 105, 0.10);
+  --green-text: #047857;
+  --amber: #b45309;
+  --amber-light: rgba(217, 119, 6, 0.12);
+  --red: #dc2626;
+  --red-light: rgba(220, 38, 38, 0.09);
+  --blue: #2563eb;
+  --blue-light: rgba(37, 99, 235, 0.09);
+
+  --campo-bg: #ffffff;
+  --campo-bg-2: #f1f5f9;
+  --gris-bg: rgba(15, 23, 42, 0.06);
+  --scroll: rgba(15, 23, 42, 0.16);
+  --scroll-hover: rgba(15, 23, 42, 0.28);
+  --sombra: rgba(15, 23, 42, 0.16);
+}
+
+/* En claro el cian es oscuro: el texto del botón principal va en blanco. */
+:root[data-tema="claro"] .btn-primary { color: #ffffff; box-shadow: 0 1px 2px var(--sombra); }
+:root[data-tema="claro"] .btn-primary:hover { background: linear-gradient(180deg, #0e7490 0%, #155e75 100%); }
+
+/* Los halos del fondo están pensados para oscuro; en claro ensucian. */
+:root[data-tema="claro"] body::before { opacity: 0.45; }
+
+/* Selector de tema en el sidebar, estilo control segmentado de iOS. */
+.tema-selector {
+  display: flex; gap: 2px; margin: 8px 1rem 4px; padding: 2px;
+  background: var(--gris-bg); border-radius: var(--radius);
+}
+.tema-selector button {
+  flex: 1; display: flex; align-items: center; justify-content: center; gap: 4px;
+  padding: 4px 0; border: 0; border-radius: 6px; background: transparent;
+  color: var(--text-3); font: inherit; font-size: 11.5px; cursor: pointer;
+}
+.tema-selector button:hover { color: var(--text); }
+.tema-selector button.activo { background: var(--surface); color: var(--text); box-shadow: 0 1px 2px rgba(0,0,0,.18); }
+.tema-selector i { font-size: 14px; }
 
 body {
   font-family: 'Inter', system-ui, sans-serif;
@@ -82,8 +161,8 @@ body::before {
 /* Scrollbars discretas */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.10); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
-::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.18); background-clip: content-box; }
+::-webkit-scrollbar-thumb { background: var(--scroll); border-radius: 999px; border: 2px solid transparent; background-clip: content-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--scroll-hover); background-clip: content-box; }
 
 .app { display: flex; height: 100vh; overflow: hidden; }
 
@@ -177,7 +256,7 @@ body::before {
 .metric:hover {
   border-color: rgba(34, 211, 238, 0.35);
   transform: translateY(-2px);
-  box-shadow: 0 8px 24px -12px rgba(0,0,0,0.7);
+  box-shadow: 0 8px 24px -12px var(--sombra);
 }
 .metric-label { font-size: 10.5px; color: var(--text-3); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 5px; }
 .metric-value { font-size: 23px; font-weight: 600; letter-spacing: -0.5px; }
@@ -206,7 +285,7 @@ tbody tr:hover td { background: var(--surface-2); }
 .badge-amber { background: var(--amber-light); color: var(--amber); border-color: rgba(251,191,36,0.25); }
 .badge-red   { background: var(--red-light);   color: var(--red);   border-color: rgba(248,113,113,0.25); }
 .badge-blue  { background: var(--blue-light);  color: var(--blue);  border-color: rgba(96,165,250,0.25); }
-.badge-gray  { background: rgba(255,255,255,0.06); color: var(--text-2); border-color: var(--border-light); }
+.badge-gray  { background: var(--gris-bg); color: var(--text-2); border-color: var(--border-light); }
 
 /* --------------------------------------------------------------- Formularios */
 .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
@@ -217,7 +296,7 @@ tbody tr:hover td { background: var(--surface-2); }
   border: 1px solid var(--border);
   border-radius: var(--radius);
   font-size: 13px;
-  background: rgba(0, 0, 0, 0.22);
+  background: var(--campo-bg);
   color: var(--text);
   font-family: inherit;
   transition: border-color 0.15s, box-shadow 0.15s;
@@ -237,7 +316,7 @@ tbody tr:hover td { background: var(--surface-2); }
 .search-wrap input {
   flex: 1; padding: 8px 12px;
   border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 13px; background: rgba(0,0,0,0.22); color: var(--text);
+  font-size: 13px; background: var(--campo-bg); color: var(--text);
   font-family: inherit;
   transition: border-color 0.15s, box-shadow 0.15s;
 }
@@ -257,7 +336,7 @@ tbody tr:hover td { background: var(--surface-2); }
   border-radius: var(--radius-lg);
   border: 1px solid var(--border);
   width: 100%; max-width: 560px; max-height: 90vh; overflow-y: auto;
-  box-shadow: 0 24px 60px -12px rgba(0,0,0,0.75);
+  box-shadow: 0 24px 60px -12px var(--sombra);
   animation: subir 0.18s ease-out;
 }
 .modal-header { display: flex; align-items: center; justify-content: space-between; padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-light); }
@@ -291,7 +370,7 @@ tbody tr:hover td { background: var(--surface-2); }
   border-radius: var(--radius-lg);
   padding: 1.75rem 1.5rem;
   display: flex; flex-direction: column; gap: 14px;
-  box-shadow: 0 24px 60px -20px rgba(0,0,0,0.8);
+  box-shadow: 0 24px 60px -20px var(--sombra);
   animation: subir 0.25s ease-out;
 }
 .login-brand { text-align: center; margin-bottom: 0.25rem; }
@@ -343,7 +422,7 @@ tbody tr:hover td { background: var(--surface-2); }
 .btn-activo { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .conteo {
   display: inline-block; margin-left: 5px; padding: 0 5px;
-  border-radius: 999px; background: rgba(255,255,255,0.08);
+  border-radius: 999px; background: var(--gris-bg);
   font-size: 10.5px; color: inherit; opacity: 0.85;
 }
 
@@ -420,7 +499,7 @@ tbody tr:hover td { background: var(--surface-2); }
 .chat-buscar input {
   width: 100%; padding: 7px 10px;
   border: 1px solid var(--border); border-radius: var(--radius);
-  font-size: 12.5px; background: rgba(0,0,0,0.22); color: var(--text);
+  font-size: 12.5px; background: var(--campo-bg); color: var(--text);
   font-family: inherit;
 }
 .chat-buscar input::placeholder { color: var(--text-3); }
@@ -531,7 +610,7 @@ tbody tr:hover td { background: var(--surface-2); }
   background: var(--surface);
   border-left: 1px solid var(--border);
   display: flex; flex-direction: column;
-  box-shadow: -24px 0 60px -20px rgba(0,0,0,.7);
+  box-shadow: -24px 0 60px -20px var(--sombra);
   animation: entrar-derecha .2s ease-out;
 }
 @keyframes entrar-derecha { from { transform: translateX(24px); opacity: 0; } to { transform: none; opacity: 1; } }
@@ -560,7 +639,7 @@ tbody tr:hover td { background: var(--surface-2); }
 
 .select-estado {
   padding: 5px 8px; border-radius: var(--radius);
-  border: 1px solid var(--border); background: rgba(0,0,0,.22);
+  border: 1px solid var(--border); background: var(--campo-bg);
   color: var(--text); font-size: 12px; font-family: inherit;
   text-transform: capitalize;
 }
@@ -633,7 +712,7 @@ a.card-liga:hover { color: var(--accent); }
 .entrada-cantidad {
   width: 62px; padding: 5px 7px;
   border: 1px solid var(--border); border-radius: var(--radius);
-  background: rgba(0,0,0,.22); color: var(--text);
+  background: var(--campo-bg); color: var(--text);
   font-size: 12.5px; font-family: inherit;
   font-variant-numeric: tabular-nums;
 }
@@ -642,7 +721,7 @@ a.card-liga:hover { color: var(--accent); }
 .entrada-nota {
   width: 100%; margin-top: 5px; padding: 4px 7px;
   border: 1px solid var(--border-light); border-radius: 6px;
-  background: rgba(0,0,0,.18); color: var(--text-2);
+  background: var(--campo-bg-2); color: var(--text-2);
   font-size: 11px; font-family: inherit;
 }
 .entrada-nota::placeholder { color: var(--text-3); }
@@ -656,7 +735,7 @@ a.card-liga:hover { color: var(--accent); }
 .agregar-partida select {
   flex: 1; min-width: 0; padding: 6px 9px;
   border: 1px solid var(--border); border-radius: var(--radius);
-  background: rgba(0,0,0,.22); color: var(--text);
+  background: var(--campo-bg); color: var(--text);
   font-size: 12.5px; font-family: inherit;
 }
 .agregar-partida select:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
