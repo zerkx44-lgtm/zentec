@@ -2,6 +2,17 @@
 
 ## Estado actual
 
+**14 de septiembre de 2026 (cierre del día) — producción ya no es la del 7 de
+septiembre; esto reemplaza el párrafo siguiente.** Se desplegaron tres
+commits más: `b9aea4a` (bitácora), `667542b` (Órdenes ya no se crea sin
+cotización) y `d1f1e9f` (tema claro). Verificado contra el JS/CSS servidos en
+producción. Además, en sesión con el arquitecto se revirtió la decisión del 8
+de septiembre "la orden es la cita" y se diseñaron tres piezas nuevas que
+todavía no existen en la base: la tabla `visitas` (agenda de servicios, no
+solo instalaciones), el control de usuarios vía Edge Function, y la firma de
+conformidad del cliente. Ninguna de las tres está construida; ver
+"Decisiones tomadas" y "Pendientes conocidos".
+
 **14 de septiembre de 2026 — la alerta de solicitud lista está armada y sin
 probar.** Cuatro nodos nuevos en `zentec-bot-final` colgando de `Guardar
 Venta`, más la columna `bot_solicitudes.alertada_at`. No se ha ejecutado ni
@@ -63,6 +74,80 @@ y arquitectura), `zentec-marketing` (publicidad digital) y `watson` (esta
 bitácora).
 
 ## Decisiones tomadas
+
+**14 de septiembre de 2026 — se revierte "la orden es la cita" (decisión del
+8 de septiembre).** Razón nueva: Marcos quiere una agenda de servicios en
+general, y hay citas que no nacen de una cotización (levantamiento antes de
+cotizar, garantía). La orden sigue naciendo de una cotización y es lo que se
+vendió; la cita en el calendario es la **visita**, tabla propia `visitas`
+(tipo levantamiento/instalación/mantenimiento/garantía/soporte, inicio y fin
+`timestamptz`, estado programada/en_curso/realizada/cancelada/reprogramada,
+`orden_id`, `cliente_id` y `solicitud_id` opcionales con CHECK de que haya
+cliente o solicitud). Una instalación de tres días son varias visitas. Esto
+cancela el §4 de `pendientes-9sep-para-el-chat.md` (columnas
+`hora_inicio`/`duracion_min`/`tecnico_id` en `ordenes_trabajo`, que databa
+del 8 de septiembre).
+
+**14 de septiembre de 2026 — los técnicos se asignan a la visita, no a la
+orden.** Marcos quiere que una orden pueda tener varios técnicos, y cada día
+de una instalación puede llevar gente distinta. Tabla `visita_tecnicos`
+(rol responsable/apoyo). `tecnicos` queda separada de `perfiles`, con
+`perfil_id` opcional, para poder agendar a un ayudante sin cuenta en el
+sistema.
+
+**14 de septiembre de 2026 — el seguimiento de una visita es por eventos, no
+por edición.** Tabla `visita_eventos` (avance/incidencia/material/cierre,
+nota, autor, fecha) que no se edita ni se borra. Cuelga de la visita, no de
+la orden, para que un mantenimiento o una garantía sin orden también tengan
+bitácora.
+
+**14 de septiembre de 2026 — un servicio cobrable necesita cotización.** Un
+mantenimiento o soporte que se cobra se cotiza con un producto de catálogo
+tipo "Servicio de mantenimiento". Levantamiento y garantía van sin
+cotización porque no se cobran.
+
+**14 de septiembre de 2026 — la agenda de servicios va antes que la
+cobranza.** Decisión de Marcos; invierte el orden de urgencia que traía la
+lista de pendientes desde el 8 de septiembre (ahí "conectar
+`crear_orden_de_cotizacion`" y la pantalla de cobranza iban antes que el
+calendario). Advertencia del arquitecto: esto deja más tiempo abierto la
+ventana de que `Facturas.jsx` siga escribiendo el saldo desde el navegador
+(ver decisión del 8 de septiembre sobre `Math.max(total - anticipo, 0)`);
+tolerable solo mientras siga habiendo un único usuario del panel.
+
+**14 de septiembre de 2026 — control de usuarios por Edge Function, no desde
+el navegador ni desde n8n.** Marcos quiere poder dar de alta usuarios desde
+el panel. Diseño: un apartado Usuarios solo para admin llama a una
+**Supabase Edge Function** con la sesión; la función verifica el token con
+`auth.getUser`, confirma que quien llama sea admin activo, toma `empresa_id`
+del perfil de quien invita (nunca del body), valida rol y correo, invita con
+la service role key —secreto de Supabase, nunca en el navegador— y crea el
+perfil; si crear el perfil falla, borra el usuario recién invitado. Se
+desactiva en vez de borrar, bloqueando también la cuenta; nadie puede
+desactivarse a sí mismo ni dejar una empresa sin admin. Se prefirió Edge
+Function sobre n8n porque valida la sesión de forma nativa, la llave queda
+como secreto de Supabase y no depende del VPS; y porque en n8n ya se filtró
+el token de Meta (ver "Cambios, por fecha" del 14 de septiembre, la primera
+entrada). Nadie edita `perfiles` desde el navegador —un vendedor podría
+ponerse admin—. Roles: admin/vendedor/técnico; quien registra un pago no
+puede cancelarlo (separación de funciones sobre el pago); el técnico no lee
+tablas de precios sino una función `agenda_tecnico` sin precios, porque las
+políticas RLS filtran filas, no columnas. `bot_admins` sigue siendo una
+tabla separada de `perfiles`. La migración agrega las políticas nuevas junto
+a las `using (true)` existentes y va quitando las viejas tabla por tabla,
+porque si una política queda mal el panel no marca error: muestra tablas
+vacías, y eso pasa desapercibido.
+
+**14 de septiembre de 2026 — firma de conformidad del cliente en sitio,
+desde el celular del técnico.** Pedido de Marcos. Depende del control de
+usuarios, aunque se puede construir antes usando la cuenta de Marcos. Se
+descartó un enlace de un solo uso sin cuenta. Diseño: bucket privado
+`firmas` sin permiso de modificar ni borrar (una firma mal puesta se anula
+con motivo y se firma de nuevo), `texto_aceptado` guardado junto con la
+firma, fecha tomada del servidor y no del celular, y una función
+`completar_orden` que exige firma o motivo de admin para saltarla. La imagen
+de la firma es dato personal y hay que mencionarla en el aviso de
+privacidad.
 
 **8 de septiembre de 2026 — sesión sin código, de verificación y diseño.**
 No se tocó una sola línea de `src/`. El trabajo fue: verificar supuestos
@@ -211,6 +296,60 @@ Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
 
+**14 de septiembre de 2026 (cierre del día) — tres commits desplegados y
+diseño de agenda/usuarios/firma con el arquitecto.**
+
+`b9aea4a`: entradas de bitácora del 10 al 14 de septiembre que estaban sin
+commitear. Para poder commitear hubo que borrar un `.git/index.lock`
+huérfano (ver "Cosas que ya costaron tiempo").
+
+`667542b`, Órdenes: ya no se puede crear una orden sin cotización. La opción
+"Sin cotización" queda deshabilitada al crear, con el aviso "Selecciona la
+cotización aprobada de la que sale la orden". Razón: sin cotización no hay
+dónde colgar el cobro (ver la decisión "un servicio cobrable necesita
+cotización"). Dos excepciones deliberadas: las órdenes viejas que ya no
+tienen cotización se pueden seguir editando —si no, quedarían congeladas,
+sin poder ni cambiarles el estado—; y si la cotización de una orden dejó de
+estar aprobada, se sigue mostrando en el selector, porque el selector solo
+lista aprobadas y antes esa orden se veía con el campo en blanco. Verificado
+en producción (el JS servido contiene el aviso) y por Marcos en pantalla.
+
+`d1f1e9f`, tema claro: selector Auto / Claro / Oscuro en el sidebar. Auto
+sigue el tema del sistema operativo y reacciona si cambia. La elección se
+guarda en `localStorage` del navegador, no en la base, porque no es un dato
+del negocio. Un script en `index.html` aplica el tema en `<html
+data-tema>` antes de que React pinte, para que no parpadee en oscuro al
+cargar. Nuevo `src/lib/tema.js` (hook `useTema`). Los colores que en
+`src/index.css` estaban fijos para fondo oscuro (fondo de campos, badge
+gris, scrollbar, sombras) pasaron a variables `--campo-bg`, `--campo-bg-2`,
+`--gris-bg`, `--scroll`, `--scroll-hover`, `--sombra`; el tema claro solo
+redefine esas variables bajo `:root[data-tema="claro"]`. En claro el cian se
+oscurece a `#0891b2` con texto blanco en el botón principal, porque ni el
+cian claro sobre blanco se lee bien ni el texto oscuro original se lee sobre
+cian oscuro. Verificado en el navegador local (sidebar, tabla, las cinco
+etiquetas de color, avisos, botones y campos, en los dos temas; oscuro salió
+idéntico a antes) y en producción (los assets servidos coinciden con el
+build local, y el HTML/JS/CSS contienen el selector y la regla de tema
+claro). Marcos hizo el push y el `rsync`. **Sin verificar todavía:**
+pantallas con sesión iniciada, sobre todo Conversaciones y el cajón de
+Cotizaciones, que tienen estilos propios.
+
+Con esto, producción sirve el build con Órdenes exigiendo cotización,
+Prospectos con la antigüedad corregida y el tema claro; todo lo anterior
+está en `origin/main`.
+
+En la misma sesión, con el arquitecto y sin tocar código, se diseñaron tres
+piezas que reemplazan y extienden decisiones previas: la tabla `visitas`
+para la agenda de servicios (revierte "la orden es la cita" del 8 de
+septiembre), el control de usuarios vía Edge Function, y la firma de
+conformidad del cliente. Ver "Decisiones tomadas" para el detalle de cada
+una. El producto de esa parte de la sesión es
+`~/Downloads/agenda-seguridad-para-el-chat.md`, con un paso 0 de seguridad
+(rotar el token de Meta, revisar si el registro de usuarios está abierto en
+Supabase Auth, revisar y revocar `execute` de funciones `security definer`),
+un paso 1 de verificaciones (V1 a V12) y un paso 2 con el SQL de `tecnicos`,
+`visitas`, `visita_tecnicos` y `visita_eventos`.
+
 **14 de septiembre de 2026 — alerta a WhatsApp cuando una solicitud queda
 lista.** Sin commits: todo es base, n8n y Meta.
 
@@ -337,6 +476,17 @@ datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
 
+**Un `.git/index.lock` huérfano bloquea todos los commits sin avisar la
+causa real.** El mensaje dice "another git process seems to be running", que
+suena a que hay que esperar. El del 14 de septiembre estaba vacío, era del
+10 de septiembre a las 14:08 y no había ningún proceso git corriendo: lo
+dejó un proceso caído, no uno en marcha. Antes de borrarlo hay que
+comprobar dos cosas, `pgrep -fl git` (que no haya proceso) y la fecha del
+archivo (que no sea de hace segundos); si las dos cuadran, se borra con `rm
+-f .git/index.lock` y el commit sigue. Nota: esto es distinto de la trampa
+ya registrada del shell de Claude en la nube, que deja el lock por no poder
+borrar archivos montados; este lock apareció en la Mac de Marcos.
+
 **La regla de los teléfonos a 10 dígitos es falsa para las tablas `bot_*`.**
 El arranque dice "los teléfonos se guardan a 10 dígitos; WhatsApp necesita 521
 + esos 10". Vale para el resto del sistema, pero `bot_prospectos.numero` y
@@ -448,6 +598,57 @@ terminal.
   los hashes y no vale la pena por algo cosmético (8 de septiembre de 2026).
 
 ## Pendientes conocidos
+
+**14 de septiembre de 2026 (cierre del día) — lo que dejó la sesión de
+agenda/usuarios/firma.**
+
+**Cerrado de la lista de abajo:** "conectar `crear_orden_de_cotizacion` y
+quitar la opción 'Sin cotización' de `Ordenes.jsx:108`" — la parte del panel
+(quitar la opción, con sus dos excepciones) quedó hecha en `667542b` y
+verificada en producción. La función `crear_orden_de_cotizacion` en la base
+sigue pendiente, ahora del lado del otro chat.
+
+**Para el otro chat, en orden:** todo `~/Downloads/agenda-seguridad-para-el-
+chat.md` — paso 0 (rotar el token de Meta, que sigue siendo lo más urgente
+desde la entrada de hoy más abajo; revisar si el registro de usuarios está
+abierto en Supabase Auth; revisar y revocar `execute` de funciones
+`security definer`), paso 1 (verificaciones V1 a V12) y paso 2 (SQL de
+`tecnicos`, `visitas`, `visita_tecnicos`, `visita_eventos`, con RLS
+provisional `using (true)` anotada para el paquete de seguridad). El default
+de empresa en las tablas nuevas lo pone ese chat con el resultado de V11.
+Siguen pendientes también `crear_orden_de_cotizacion` y **no crear
+`registrar_pago_factura`**. Esa función se escribió en
+`cierre-del-ciclo-para-el-chat.md` §1.3 cuando el saldo vivía en `facturas`.
+Con la decisión del 8 de septiembre (el pago cuelga de la cotización), ese
+trabajo lo hace `registrar_pago`. Si existieran las dos, habría dos caminos
+para registrar dinero y tarde o temprano se usaría el equivocado (decidido
+el 9 de septiembre).
+
+**Hallazgos del arquitecto, sin verificar:** si "Allow new users to sign up"
+está encendido en Supabase Auth, cualquiera con la publishable key se crea
+una cuenta y, con `using (true)`, ve y edita todo (la consulta de `anon` del
+10 de septiembre, que dio cero filas, no cubre este caso). Si alguna función
+`bot_*` es `security definer`, la publishable key podría bastar para
+llamarla desde internet, porque Postgres da `execute` a `public` por
+defecto; falta confirmar con qué rol entra n8n antes de revocar, y revisar
+si algún nodo usa la credencial "Supabase account" (probablemente service
+role) para borrarla si no se usa.
+
+**Para Claude Code, cuando existan las tablas y lleguen los resultados de
+V1–V12:** pantalla Agenda para un usuario (calendario semanal, alta de
+visita con o sin orden, técnicos, eventos, catálogo de técnicos). Después:
+paquete de seguridad + Edge Function + pantalla Usuarios; luego la firma;
+luego cobranza (`pagos`) y los `revoke` pendientes de `Facturas.jsx`. Este
+orden invierte el que traía la lista desde el 8 de septiembre porque Marcos
+decidió priorizar la agenda (ver "Decisiones tomadas").
+
+**Para Marcos:** probar el tema claro con sesión iniciada, sobre todo
+Conversaciones y el cajón de Cotizaciones, que tienen estilos propios y no
+se verificaron.
+
+**Sigue abierto, sin resolver hoy:** el cliente que aprobó su cotización el
+8 de septiembre sigue sin fecha de instalación. Es la razón original de todo
+el trabajo de agenda de hoy.
 
 **14 de septiembre de 2026 — lo que agregó la sesión de la alerta.**
 
