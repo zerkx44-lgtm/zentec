@@ -28,6 +28,10 @@ export default function Ordenes() {
 
   async function guardar() {
     if (!form.descripcion?.trim()) return setMsg({ type: 'error', text: 'La descripción es requerida' })
+    // Una orden nueva siempre nace de una cotización: sin ella no hay dónde
+    // colgar el cobro. Las órdenes viejas sin cotización se pueden seguir
+    // editando para no dejarlas congeladas.
+    if (!form.id && !form.cotizacion_id) return setMsg({ type: 'error', text: 'Selecciona la cotización aprobada de la que sale la orden' })
     setGuardando(true)
 
     // Solo las columnas de la tabla. `form` trae la fila completa que devolvió
@@ -105,7 +109,10 @@ export default function Ordenes() {
                 <div className="form-group form-full">
                   <label>Cotización relacionada</label>
                   <select value={form.cotizacion_id || ''} onChange={e => setForm({...form, cotizacion_id: e.target.value})}>
-                    <option value="">Sin cotización</option>
+                    <option value="" disabled={!form.id}>{form.id ? 'Sin cotización' : 'Selecciona una cotización'}</option>
+                    {form.cotizacion_id && form.cotizaciones && !cotizaciones.some(c => c.id === form.cotizacion_id) && (
+                      <option value={form.cotizacion_id}>COT-{form.cotizaciones.consecutivo} — {form.cotizaciones.clientes?.nombre}</option>
+                    )}
                     {cotizaciones.map(c => <option key={c.id} value={c.id}>COT-{c.consecutivo} — {c.clientes?.nombre}</option>)}
                   </select>
                 </div>
