@@ -2,6 +2,24 @@
 
 ## Estado actual
 
+**14 de septiembre de 2026 — la alerta de solicitud lista está armada y sin
+probar.** Cuatro nodos nuevos en `zentec-bot-final` colgando de `Guardar
+Venta`, más la columna `bot_solicitudes.alertada_at`. No se ha ejecutado ni
+una vez: falta que Meta apruebe la plantilla `solicitud_lista`, enviada a
+revisión hoy. El panel no se tocó y producción sigue con la versión del 7 de
+septiembre. Evolution quedó desactivado; todo entra por Meta, lo que significa
+que ya no existe ninguna salida para mensajes libres fuera de la ventana de 24
+horas. Detalle completo en `~/Downloads/alerta-solicitud-lista-para-el-chat.md`.
+
+**10 de septiembre de 2026 — la pantalla de Prospectos ya no miente sobre la
+antigüedad.** Es el único cambio de código del día y está commiteado local
+(`9433f54`), sin desplegar: producción sigue con la versión del 7 de
+septiembre hasta que se corra el `rsync`. Del lado de la base no se aplicó
+nada: el objetivo "de la cotización aprobada a la orden agendada" sigue sin
+empezar, y `grep -rn "\.rpc(" src` sigue devolviendo cero. Lo que sí se cerró
+es la consulta de políticas para `anon`, pendiente desde el 7 de septiembre:
+devolvió cero filas.
+
 **8 de septiembre de 2026 — corrección de un supuesto.** La bitácora del 7 de
 septiembre decía que "los botones del ciclo del dinero están desconectados".
 Es falso y da una impresión equivocada: `Facturas.jsx:31` y `Facturas.jsx:45`
@@ -193,6 +211,70 @@ Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
 
+**14 de septiembre de 2026 — alerta a WhatsApp cuando una solicitud queda
+lista.** Sin commits: todo es base, n8n y Meta.
+
+En la base, `bot_solicitudes` ganó `alertada_at timestamptz`. Existe por una
+sola razón: `bot_upsert` corre con cada mensaje del cliente, y una solicitud
+que ya quedó en `cerrada` sigue cerrada, así que sin esa marca llegaría una
+alerta por cada mensaje posterior. El último nodo la sella con `now()` y la
+consulta de lectura solo devuelve filas donde siga en null.
+
+En n8n, cuatro nodos colgados de `Guardar Venta` **en paralelo** a `Cotizar?`,
+no en serie: cotizar y alertar son independientes y si uno falla el otro debe
+salir igual. `Leer Solicitud para Alerta` → `Limpiar para plantilla` →
+`Alertar a Marcos` → `Marcar alertada`.
+
+Decisiones que tienen razón y no deben deshacerse por parecer de más: los
+datos de la alerta salen de `bot_solicitudes`/`bot_prospectos` y no del objeto
+del extractor, porque ese objeto es lo que el modelo creyó entender y la fila
+es lo que quedó guardado; los `coalesce` con `nullif` están porque Meta
+rechaza un parámetro vacío y una cadena `''` tumbaría el envío entero; el
+número del destinatario sale de `bot_admins` con un subselect en vez de ir
+escrito en el nodo; y el nodo Code lleva dos funciones de teléfono que hacen lo
+contrario a propósito —una arma el número a donde va la alerta, la otra limpia
+el número que se lee dentro de ella—.
+
+`Marcar alertada` lee su parámetro con `$('Limpiar para plantilla')` y no con
+`$json`, porque en ese punto `$json` trae la respuesta de Meta. Eso lo ata al
+nombre exacto de ese nodo: renombrarlo lo rompe.
+
+En Meta quedó enviada a revisión la plantilla `solicitud_lista`, categoría
+Servicio, `es_MX`, cuatro variables numeradas, sin encabezado ni pie ni
+botones.
+
+**10 de septiembre de 2026 — Prospectos: la antigüedad cuenta desde el último
+mensaje (commit `9433f54`).** Marcos reportó que la pestaña de Prospectos no
+se movía aunque la clienta Fernanda hubiera escrito: la actividad solo se veía
+en Conversaciones. La causa se verificó en el código, no se supuso.
+`Prospectos.jsx` calculaba la antigüedad con `s.updated_at || s.created_at` de
+`bot_solicitudes` y nunca consultaba `bot_conversaciones`, así que la columna
+"Sin moverse" solo reaccionaba a cambios en la solicitud —servicio, etapa,
+dirección— y no a los mensajes.
+
+Ahora `cargar()` trae también `bot_conversaciones`, y la fecha de cada fila es
+el movimiento más reciente venga de donde venga: un mensaje del cliente, una
+respuesta del bot o un cambio en la solicitud. Eso alimenta las tres cosas a
+la vez —la columna, el filtro "Se enfrían" y su conteo—, así que no pueden
+volver a discrepar entre sí. Las filas cuyo último mensaje es del cliente
+llevan un badge ámbar **espera**: separa "te están esperando" de "ya no
+contestó", que es la diferencia accionable.
+
+Tres detalles del cómo, con su razón, para que nadie los borre pensando que
+sobran:
+
+- El enlace es por `solicitud_id`, y el teléfono queda solo de respaldo para
+  los mensajes que vengan sin etiquetar (los anteriores a que la solicitud
+  existiera). Esos se le acreditan a la solicitud **más reciente** de esa
+  persona. Sin esa regla, un cliente con dos solicitudes vería el badge
+  "espera" en las dos y una de ellas inventaría trabajo pendiente.
+- El `select` pide solo `numero, rol, created_at, solicitud_id`, no `*`: son
+  1000 filas y bajar el cuerpo de cada mensaje para leer una fecha es caro sin
+  ganar nada.
+- Si `bot_conversaciones` falla, la pantalla lo dice con una alerta y los
+  prospectos igual cargan. Callarlo dejaría días cortos en silencio, que es
+  exactamente la clase de mentira que se corrigió el 7 de septiembre.
+
 **8 de septiembre de 2026 — sesión de verificación y diseño, sin código.**
 No hubo commits. Se verificaron los supuestos de la bitácora y de
 `paso0-resultados.md` contra el código real de `src/`, y se detonó el diseño
@@ -254,6 +336,43 @@ versión del panel: estructura base y las siete pantallas sin autenticación ni
 datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
+
+**La regla de los teléfonos a 10 dígitos es falsa para las tablas `bot_*`.**
+El arranque dice "los teléfonos se guardan a 10 dígitos; WhatsApp necesita 521
++ esos 10". Vale para el resto del sistema, pero `bot_prospectos.numero` y
+`bot_admins.numero` guardan los **13** completos, con el `521` incluido.
+`Prospectos.jsx` lo tolera de rebote con `numero.length === 10 ? '521' +
+numero : numero`. Una consulta nueva que siga la regla al pie de la letra
+devuelve cero filas.
+
+**El lenguaje comercial tumba una plantilla de Servicio en Meta.** El primer
+texto de `solicitud_lista` decía "Nueva solicitud lista para cotizar" y el
+clasificador lo marcó antes de enviarlo: recomendó Marketing y avisó que sería
+rechazada. Redactada como actualización de cuenta pasó. Servicio es para
+mensajes sobre la cuenta o el pedido de quien los recibe.
+
+**Ser administrador en `bot_admins` no abre la ventana de 24 horas de Meta.**
+Las validaciones del `Modo Admin?` son autorización dentro de Zentec; para Meta
+el número personal de Marcos es un usuario más. Confundir las dos cosas llevó a
+un razonamiento equivocado que hubo que corregir a media sesión.
+
+**En WhatsApp Manager, la categoría Utilidad aparece como "Servicio".** La
+documentación de Meta le dice Utility. Es la misma.
+
+**El shell de Claude en la nube no puede correr `npm run build` de este
+repo.** `node_modules` tiene los binarios de macOS (`@rollup/rollup-darwin-x64`)
+y ese shell es Linux, así que rollup truena con `Cannot find module
+@rollup/rollup-linux-x64-gnu`. No es el bug de dependencias opcionales de npm
+que sugiere el mensaje y **no** hay que reinstalar nada: el `node_modules` está
+bien, es de otra plataforma. La verificación de sintaxis se hizo pasando el
+archivo por esbuild, y el build real lo corre Marcos en su terminal.
+
+**Consultar el estado de git desde el shell de Claude deja un
+`.git/index.lock` atorado.** Ese shell no tiene permiso para borrar archivos en
+las carpetas montadas, así que el lock que git crea y normalmente borra se
+queda. El siguiente `git commit` falla hasta que se corre `rm -f
+.git/index.lock`. Conviene que las operaciones de git las haga Marcos desde su
+terminal.
 
 - **`cotizaciones.fecha` sí existe**, es un `date` con default `CURRENT_DATE`.
   Un documento decía que no, y por seguir ese documento el código se cambió a
@@ -330,6 +449,55 @@ datos reales conectados todavía.
 
 ## Pendientes conocidos
 
+**14 de septiembre de 2026 — lo que agregó la sesión de la alerta.**
+
+**Lo más urgente que hay hoy, por encima del objetivo en curso:** el token de
+Meta va en texto plano en el header del nodo `HTTP Request1`, y ese workflow ya
+se exportó a un JSON que salió de la máquina. Hay que rotarlo, crear la
+credencial *Header Auth* en n8n y usarla en `HTTP Request1` y en `Alertar a
+Marcos`. En el mismo export van la apikey de Evolution, la IP del VPS con su
+puerto y una conversación real de un cliente, todo dentro del `pinData`.
+
+**Bloqueado, esperando a Meta:** la alerta completa. No se ha ejecutado ni una
+vez y no se puede probar hasta que la plantilla diga Activa; antes de eso Meta
+responde `132001`.
+
+**Limpieza pendiente en `zentec-bot-final`:** borrar los nodos muertos de
+Evolution —`Webhook` (ruta `zentec-baileys`), su `Code in JavaScript` y el
+`pinData` que cuelga de él— más `Get many rows`, que ya estaba huérfano.
+
+**Para cuando toque la agenda:** confirmarle la fecha de instalación al cliente
+también es un mensaje no solicitado y necesita su propia plantilla.
+`appointment_confirmation_1` de la biblioteca de Meta es buen punto de partida.
+Lo mismo aplica a los recordatorios de cobranza del diseño de pagos; conviene
+pedirle a Meta esas plantillas juntas.
+
+**10 de septiembre de 2026 — qué se cerró y qué se corrige de esta lista.**
+
+**Cerrado:** la consulta de verificación de políticas para `anon` por fin se
+corrió, desde la terminal de Marcos, y devolvió **cero filas**. Ninguna tabla
+de `public` es legible sin sesión iniciada, así que la publishable key que va a
+la vista en el build del panel no abre nada. Sale de la lista de abajo.
+
+**Cerrado también:** el `bot_conversaciones.solicitud_id` que estaba en duda ya
+está verificado contra `information_schema`. La tabla tiene `id`, `numero`,
+`rol`, `mensaje`, `created_at`, `solicitud_id` y `empresa_id`.
+
+**Corrección a esta misma lista:** la entrada "los seis commits del panel son
+locales" quedó obsoleta dos veces. El 8 de septiembre se verificó que ya
+estaban en `origin/main`, y hoy hay **un** commit local sin subir, `9433f54`.
+Esa es la única deuda de push que existe.
+
+**Sin verificar, de hoy:** Marcos confirmó en pantalla que Prospectos "ya sale
+mejor", pero no se comprobó dato por dato que el badge **espera** salga
+exactamente donde debe. Se comprueba abriendo Prospectos y cruzando una fila
+contra su conversación: si el último mensaje del chat es del cliente, esa fila
+debe traer el badge.
+
+**Agregado, menor:** si el filtro resulta útil, falta un botón "Esperan
+respuesta" junto a "Se enfrían". Ya está el dato calculado en cada fila; es
+solo la vista.
+
 **8 de septiembre de 2026 — pendientes actualizados tras la sesión de
 verificación y diseño, sin código.**
 
@@ -389,8 +557,8 @@ wa.me.
 **Repo del panel de agenda:** no se ha creado todavía; se decidió que va
 aparte del panel de Zentec (ver decisiones).
 
-**Push a remoto:** los seis commits del panel son locales, no se ha hecho
-`git push`.
+**Push a remoto:** corregido el 10 de septiembre — los seis commits ya estaban
+en `origin/main`. Lo que falta subir es `9433f54`, el arreglo de Prospectos.
 
 **Verificación pendiente:** la fecha del 1 de octubre de 2026 en que Meta
 dejaría de regalar mensajes de servicio, contra la tarjeta de tarifas oficial
