@@ -2,6 +2,24 @@
 
 ## Estado actual
 
+**16 de septiembre de 2026 — quedó construida la pantalla Agenda y conectado
+el botón que genera la orden desde una cotización aprobada.** Verificado por
+Claude Code contra el código y contra producción. `src/pages/Agenda.jsx`
+(ruta `/agenda`, entrada en el menú) muestra la semana en columnas por día —no
+rejilla por hora, porque con pocas visitas al día queda casi en blanco—, con
+navegación de semanas, alta/edición de visitas con o sin orden, técnicos por
+visita y bitácora de eventos que solo se agregan. En Cotizaciones, el cajón de
+una cotización aprobada sin orden ofrece "Generar orden", que llama a
+`crear_orden_de_cotizacion` en vez de insertar directo en `ordenes_trabajo`.
+En Órdenes se quitó "Sin cotización" también al editar. Todo está en
+`origin/main` y Marcos lo desplegó con rsync: `/agenda` responde 200, el JS
+servido (`index-CjNbMJuJ.js`) contiene `visita_tecnicos` y
+`crear_orden_de_cotizacion`, y ya no contiene "Sin cotización". Sin probar
+contra la base real: la asignación de técnicos y la bitácora dentro de una
+visita guardada, y cualquier escritura (crear visita, técnico, evento, generar
+orden); no se creó nada de prueba a propósito porque las visitas no se pueden
+borrar. Lo prueba Marcos.
+
 **15 de septiembre de 2026 — se cerraron tres huecos de seguridad abiertos al
 público y quedó creada la agenda de servicios.** `bot_ventas` y
 `recordatorios` estaban sin RLS con permisos completos para `anon`: datos
@@ -100,6 +118,13 @@ y arquitectura), `zentec-marketing` (publicidad digital) y `watson` (esta
 bitácora).
 
 ## Decisiones tomadas
+
+**16 de septiembre de 2026 — si se usa el conector de Supabase desde Claude
+Code, es solo lectura; el esquema se sigue cambiando únicamente desde el otro
+chat.** Marcos activó el conector también en Claude Code; en la sesión del 16
+apareció como "pending" y no llegó a dar herramientas, así que no se probó si
+de verdad respeta ese límite. Acordado para mantener la división de trabajo ya
+registrada (7 de septiembre): SQL y RLS en un chat, panel en el otro.
 
 **14 de septiembre de 2026 — se revierte "la orden es la cita" (decisión del
 8 de septiembre).** Razón nueva: Marcos quiere una agenda de servicios en
@@ -322,6 +347,78 @@ Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
 
+**16 de septiembre de 2026 — tres commits: botón "Generar orden", "Sin
+cotización" fuera también al editar, y la pantalla Agenda.**
+
+`fc9e64a`, Cotizaciones: el cajón de una cotización aprobada sin orden ofrece
+"Generar orden", que llama a `crear_orden_de_cotizacion` — el panel deja de
+insertar directo en `ordenes_trabajo` para este flujo. Si la cotización ya
+tiene orden, el cajón muestra su estado y un enlace a Órdenes en vez del
+botón; si no se pudo consultar si ya existe una orden, no se ofrece el botón,
+para no invitar a crear una segunda. Si la llamada a la función falla, se
+muestra el error que devuelve la base y se vuelve a consultar el estado.
+
+`cf103bc`, Órdenes: se quitó la opción "Sin cotización" también al formulario
+de edición, no solo al de alta (`667542b`, 14 de septiembre). Razón: la base
+ya exige `cotizacion_id not null` con índice único, así que dejar la opción
+en edición solo generaba un error de la base en vez de explicar por qué no se
+puede.
+
+`e98709f`, pantalla **Agenda** (`src/pages/Agenda.jsx`, ruta `/agenda`, con
+icono de calendario en el menú). Semana en columnas por día, no rejilla por
+hora: se descartó la rejilla porque con pocas visitas al día queda casi en
+blanco. Navegación entre semanas y botón "Hoy", día actual resaltado, color
+por tipo de visita, canceladas ocultables. Alta y edición de visitas con o sin
+orden; si se elige una orden, el formulario toma el cliente y la dirección de
+su cotización y cambia el tipo de levantamiento a instalación. Validaciones
+en el panel antes de enviar a la base: que el fin sea después del inicio, y
+que haya cliente o solicitud. Técnicos por visita con rol
+responsable/apoyo, con aviso si no queda nadie como responsable. Bitácora de
+eventos por visita que solo se agregan, nunca se editan ni se borran —refleja
+del lado del panel lo que la base ya impedía con `revoke` desde el 15 de
+septiembre—. Catálogo de técnicos en un modal aparte: se desactivan, no se
+borran; el teléfono se valida a 10 dígitos. Las visitas no tienen botón de
+borrar en ninguna pantalla. `visitas.inicio`/`visitas.fin` son `timestamptz`
+y el formulario convierte con la hora del navegador.
+
+Los tres commits están en `origin/main`. Marcos desplegó con rsync y se
+verificó contra producción: sirve `index-CjNbMJuJ.js` / `index-BbdDyiWE.css`
+(iguales al `dist/` local), `/agenda` responde 200, el JS contiene
+`visita_tecnicos` y `crear_orden_de_cotizacion`, y ya no contiene "Sin
+cotización".
+
+**Verificaciones contra la base, hechas por Marcos con una consulta directa y
+usadas para revisar el trabajo del panel:** la firma de
+`crear_orden_de_cotizacion(p_cotizacion_id uuid, p_descripcion text)`
+coincide con lo que llama el botón nuevo. El esquema de `tecnicos`, `visitas`,
+`visita_tecnicos` y `visita_eventos`, contra `information_schema`,
+`pg_constraint` y `role_table_grants`, coincide columna por columna con
+`agenda-seguridad-para-el-chat.md`: `empresa_id` con default
+`f099fe69-ae88-4e09-aa4e-3198b5d72cc4`, y `authenticated` sin DELETE en
+`visitas` ni UPDATE/DELETE en `visita_eventos`, tal como se diseñó.
+
+**Agenda probada en el navegador local, con la sesión de Marcos contra la
+base real, solo lectura.** Las cinco consultas de la pantalla responden 200,
+incluida la de visitas con técnicos, cliente, orden y solicitud anidados; los
+selectores traen 1 orden abierta, 10 clientes y 15 solicitudes; guardar sin
+cliente ni solicitud muestra el aviso y no manda ninguna petición a
+`visitas`; se revisó en tema claro y oscuro. Las funciones de fecha se
+probaron con `TZ=America/Mexico_City`, incluidos un domingo y las 23:30. Sin
+probar: la sección de técnicos y la bitácora dentro de una visita ya guardada,
+cualquier escritura (crear visita, técnico o evento) y el botón "Generar
+orden" contra la base real — no se creó nada de prueba a propósito, porque las
+visitas no se pueden borrar y una de prueba quedaría para siempre.
+
+**Hallazgo, para el otro chat, sin resolver aquí:** `authenticated` tiene
+TRUNCATE en `tecnicos`, `visitas`, `visita_tecnicos` y `visita_eventos`.
+PostgREST no expone TRUNCATE, así que no se puede disparar desde el panel, y
+no es urgente por eso — pero contradice la decisión del 14 de septiembre de
+que "las visitas no se borran". Queda como pregunta abierta, no resuelta.
+
+Aparte, los 404 a `perfiles` que se ven en la consola del panel son
+esperados: la tabla no existe todavía y `AuthContext` ya está escrito para
+tolerarlo (ver la entrada del 7 de septiembre sobre el login).
+
 **15 de septiembre de 2026 — paso 0 de seguridad, limpieza de
 `ordenes_trabajo` y tablas de la agenda.** Sin commits: todo es base de datos
 y configuración de Supabase. La tanda venía de
@@ -534,6 +631,13 @@ datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
 
+**El editor SQL de Supabase solo muestra el resultado del último `select`.**
+Pegar varias consultas de verificación juntas y correrlas de una vez devuelve
+solo la de hasta abajo; las anteriores se pierden sin avisar que no se
+mostraron. La solución usada el 16 de septiembre fue juntar todo en un
+`select json_build_object(...)` que devuelve una sola celda con todos los
+resultados adentro.
+
 **Revocar a `anon` no sirve si el permiso viene de `PUBLIC`.** El ACL muestra
 `=X/postgres`: esa entrada sin nombre delante es `PUBLIC`, todos los roles, y
 `anon` hereda de ahí. Postgres otorga `EXECUTE` a `PUBLIC` en toda función
@@ -689,6 +793,32 @@ terminal.
   los hashes y no vale la pena por algo cosmético (8 de septiembre de 2026).
 
 ## Pendientes conocidos
+
+**16 de septiembre de 2026.**
+
+**Cerrado hoy, del lado del panel:** el botón "Generar orden" en Cotizaciones
+y "Sin cotización" fuera del editor de Órdenes (ver "Cambios, por fecha"). La
+pantalla Agenda quedó construida y desplegada.
+
+**Para Marcos:** probar en producción el flujo completo — generar la orden
+del cliente que aprobó su cotización, dar de alta técnicos, crear la visita
+de instalación ligada a esa orden, asignarle técnicos y registrar un evento
+en su bitácora. Es lo único que falta para cerrar "el cliente que aprobó su
+cotización el 8 de septiembre sigue sin fecha de instalación" (pendiente
+abierto desde el 14).
+
+**Para el otro chat:** sigue pendiente rotar el token de Meta (lo más urgente
+desde el 14); revocar TRUNCATE en `tecnicos`, `visitas`, `visita_tecnicos` y
+`visita_eventos` (hallazgo del 16, contradice "las visitas no se borran");
+confirmar si ya se aplicaron los `revoke` de saldo en `facturas`/
+`cotizaciones`, porque de eso depende si `Facturas.jsx` todavía guarda o si
+choca con `recalcular_cobranza`; crear `aprobada_at`/`rechazada_at`/
+`motivo_rechazo` en `cotizaciones` (sigue sin existir, ver entrada del 15).
+
+**Para Claude Code:** pasar el alta de Órdenes a `crear_orden_de_cotizacion`
+también en el flujo que hoy sigue insertando directo en `ordenes_trabajo`,
+protegido por el índice único; después, el paquete de usuarios y la firma de
+conformidad; luego la cobranza con `pagos` y reescribir `Facturas.jsx`.
 
 **15 de septiembre de 2026.**
 
