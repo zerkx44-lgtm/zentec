@@ -754,3 +754,13 @@ a.card-liga:hover { color: var(--accent); }
 
 /* Aviso informativo, ni éxito ni error */
 .alert-aviso { background: var(--amber-light); color: var(--amber); border-color: rgba(251,191,36,.25); }
+
+/* Enlace entre una cotización y su orden de trabajo, dentro del cajón. */
+.orden-vinculo {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  padding: 8px 10px; border: 1px solid var(--border-light); border-radius: var(--radius);
+  background: var(--surface-2); font-size: 13px; color: var(--text-2);
+}
+.orden-vinculo > i { color: var(--accent); font-size: 16px; }
+.orden-vinculo > span { flex: 1; }
+.orden-vinculo strong { color: var(--text); font-weight: 600; }

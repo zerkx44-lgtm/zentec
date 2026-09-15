@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { supabase } from '../lib/supabase.js'
 
 const ESTADOS = ['borrador', 'en_revision', 'aprobada', 'enviada', 'rechazada']
@@ -45,6 +46,10 @@ export default function Cotizaciones() {
   const [partidas, setPartidas] = useState([])
   const [cargandoDetalle, setCargandoDetalle] = useState(false)
   const [pestana, setPestana] = useState('datos')
+  // Orden de trabajo de la cotización abierta. `undefined` = no se sabe
+  // todavía (o falló la consulta): en ese caso no se ofrece generar otra.
+  const [orden, setOrden] = useState(undefined)
+  const [generandoOrden, setGenerandoOrden] = useState(false)
 
   const [editando, setEditando] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -157,9 +162,42 @@ export default function Cotizaciones() {
     setPestana('datos')
     setEditando(false)
     setPartidas([])
+    setOrden(undefined)
     setCargandoDetalle(true)
-    await cargarPartidas(c.id)
+    await Promise.all([cargarPartidas(c.id), cargarOrden(c.id)])
     setCargandoDetalle(false)
+  }
+
+  async function cargarOrden(cotizacionId) {
+    const { data, error } = await supabase
+      .from('ordenes_trabajo')
+      .select('id, estado, created_at')
+      .eq('cotizacion_id', cotizacionId)
+      .order('created_at', { ascending: true })
+      .limit(1)
+    if (error) {
+      setMsg({ type: 'error', text: 'No se pudo revisar si ya tiene orden de trabajo: ' + error.message })
+      return
+    }
+    setOrden(data?.[0] || null)
+  }
+
+  // La orden la crea la base: valida que la cotización esté aprobada y que
+  // no tenga ya una orden. El panel no inserta en ordenes_trabajo.
+  async function generarOrden(c) {
+    if (!confirm(`¿Generar la orden de trabajo de COT-${c.consecutivo}?`)) return
+    setGenerandoOrden(true)
+    setMsg(null)
+    const { data, error } = await supabase.rpc('crear_orden_de_cotizacion', { p_cotizacion_id: c.id })
+    setGenerandoOrden(false)
+    if (error) {
+      setMsg({ type: 'error', text: 'No se pudo generar la orden: ' + error.message })
+      // Si falló porque ya existía (otra pestaña, otro usuario), mostrar la real.
+      await cargarOrden(c.id)
+      return
+    }
+    setOrden(data)
+    setMsg({ type: 'success', text: `Orden de trabajo generada para COT-${c.consecutivo}.` })
   }
 
   async function cargarPartidas(cotizacionId) {
@@ -410,6 +448,24 @@ export default function Cotizaciones() {
                       </button>
                       {guardando && <span className="pista">Guardando...</span>}
                     </div>
+
+                    {orden ? (
+                      <div className="orden-vinculo">
+                        <i className="ti ti-tool" />
+                        <span>
+                          Orden de trabajo <strong>{(orden.estado || 'pendiente').replace('_', ' ')}</strong>
+                        </span>
+                        <Link className="btn btn-sm" to="/ordenes">Ver órdenes</Link>
+                      </div>
+                    ) : orden === null && abierta.estado === 'aprobada' && (
+                      <div className="orden-vinculo">
+                        <i className="ti ti-tool" />
+                        <span>Aprobada y sin orden de trabajo.</span>
+                        <button className="btn btn-sm btn-primary" disabled={generandoOrden} onClick={() => generarOrden(abierta)}>
+                          {generandoOrden ? 'Generando...' : 'Generar orden'}
+                        </button>
+                      </div>
+                    )}
 
                     {pdfDesfasado(abierta) && (
                       <div className="alert alert-error">
