@@ -764,3 +764,58 @@ a.card-liga:hover { color: var(--accent); }
 .orden-vinculo > i { color: var(--accent); font-size: 16px; }
 .orden-vinculo > span { flex: 1; }
 .orden-vinculo strong { color: var(--text); font-weight: 600; }
+
+/* ---------------------------------------------------------------- Agenda */
+/* Una columna por día en vez de rejilla por hora: con pocas visitas al día,
+   la rejilla deja casi todo en blanco y obliga a desplazarse. */
+.agenda-barra { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; flex-wrap: wrap; }
+.agenda-rango { align-self: center; margin-left: 6px; font-size: 13px; color: var(--text-2); text-transform: capitalize; }
+.agenda-scroll { overflow-x: auto; }
+.agenda-semana { display: grid; grid-template-columns: repeat(7, minmax(140px, 1fr)); gap: 6px; min-width: 980px; }
+.agenda-dia {
+  display: flex; flex-direction: column; min-height: 420px;
+  background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius);
+}
+.agenda-dia.hoy { border-color: var(--accent); }
+.agenda-dia-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 6px 8px; border-bottom: 1px solid var(--border-light);
+  font-size: 12px; color: var(--text-2);
+}
+.agenda-dia-header strong { color: var(--text); font-size: 14px; margin-left: 2px; }
+.agenda-dia.hoy .agenda-dia-header strong { color: var(--accent); }
+.agenda-dia-cuerpo { display: flex; flex-direction: column; gap: 6px; padding: 6px; }
+.btn-icono {
+  border: 0; background: transparent; color: var(--text-3); cursor: pointer;
+  width: 22px; height: 22px; border-radius: 6px; font-size: 14px;
+}
+.btn-icono:hover { background: var(--gris-bg); color: var(--text); }
+
+.agenda-visita {
+  display: flex; flex-direction: column; align-items: flex-start; gap: 3px;
+  width: 100%; padding: 7px 8px; text-align: left; font: inherit; font-size: 12.5px;
+  color: var(--text); cursor: pointer;
+  background: var(--surface-2); border: 1px solid var(--border-light); border-radius: var(--radius);
+}
+.agenda-visita:hover { border-color: var(--border-strong); background: var(--surface-hover); }
+.agenda-visita-hora { font-size: 11.5px; color: var(--text-2); font-variant-numeric: tabular-nums; }
+.agenda-visita-quien { font-weight: 600; line-height: 1.3; }
+.agenda-visita.estado-cancelada { opacity: 0.5; }
+.agenda-visita.estado-cancelada .agenda-visita-quien { text-decoration: line-through; }
+.agenda-visita.estado-realizada { opacity: 0.75; }
+
+.agenda-acciones { display: flex; justify-content: flex-end; margin: 12px 0 4px; }
+.agenda-seccion {
+  margin: 16px 0 8px; padding-top: 12px; border-top: 1px solid var(--border-light);
+  font-size: 12px; font-weight: 600; color: var(--text-2); text-transform: uppercase; letter-spacing: .04em;
+}
+.agenda-fila { display: flex; gap: 6px; align-items: center; margin-top: 8px; }
+.agenda-fila select, .agenda-fila input {
+  padding: 6px 8px; font: inherit; font-size: 13px; color: var(--text);
+  background: var(--campo-bg); border: 1px solid var(--border); border-radius: var(--radius);
+}
+.agenda-fila input { flex: 1; min-width: 0; }
+.agenda-fila select option { background: var(--surface-2); color: var(--text); }
+.agenda-eventos { list-style: none; display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.agenda-eventos li { padding-left: 10px; border-left: 2px solid var(--border); }
+

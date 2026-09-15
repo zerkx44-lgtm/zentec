@@ -8,6 +8,7 @@ import Cotizaciones from './pages/Cotizaciones.jsx'
 import Clientes from './pages/Clientes.jsx'
 import Productos from './pages/Productos.jsx'
 import Ordenes from './pages/Ordenes.jsx'
+import Agenda from './pages/Agenda.jsx'
 import Facturas from './pages/Facturas.jsx'
 import Configuracion from './pages/Configuracion.jsx'
 import { useTema } from './lib/tema.js'
@@ -48,6 +49,9 @@ function Sidebar() {
         </NavLink>
         <NavLink to="/ordenes" className={claseNav}>
           <i className="ti ti-tool" /><span>Órdenes trabajo</span>
+        </NavLink>
+        <NavLink to="/agenda" className={claseNav}>
+          <i className="ti ti-calendar" /><span>Agenda</span>
         </NavLink>
         <NavLink to="/facturas" className={claseNav}>
           <i className="ti ti-receipt" /><span>Facturas</span>
@@ -99,6 +103,7 @@ function Panel() {
             <Route path="/clientes" element={<Clientes />} />
             <Route path="/productos" element={<Productos />} />
             <Route path="/ordenes" element={<Ordenes />} />
+            <Route path="/agenda" element={<Agenda />} />
             <Route path="/facturas" element={<Facturas />} />
             <Route path="/configuracion" element={<Configuracion />} />
             <Route path="*" element={<Navigate to="/dashboard" replace />} />
