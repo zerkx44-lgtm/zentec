@@ -812,7 +812,8 @@ desde el 14); revocar TRUNCATE en `tecnicos`, `visitas`, `visita_tecnicos` y
 `visita_eventos` (hallazgo del 16, contradice "las visitas no se borran");
 confirmar si ya se aplicaron los `revoke` de saldo en `facturas`/
 `cotizaciones`, porque de eso depende si `Facturas.jsx` todavía guarda o si
-choca con `recalcular_cobranza`; crear `aprobada_at`/`rechazada_at`/
+choca con `recalcular_cobranza` (que `pagos` y sus funciones existan lo
+dice el otro chat; Claude Code no lo ha verificado); crear `aprobada_at`/`rechazada_at`/
 `motivo_rechazo` en `cotizaciones` (sigue sin existir, ver entrada del 15).
 
 **Para Claude Code:** pasar el alta de Órdenes a `crear_orden_de_cotizacion`
