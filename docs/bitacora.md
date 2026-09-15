@@ -2,6 +2,32 @@
 
 ## Estado actual
 
+**15 de septiembre de 2026 — se cerraron tres huecos de seguridad abiertos al
+público y quedó creada la agenda de servicios.** `bot_ventas` y
+`recordatorios` estaban sin RLS con permisos completos para `anon`: datos
+personales de prospectos legibles y borrables desde internet. Treinta
+funciones eran ejecutables sin sesión iniciada, entre ellas
+`marcar_pdf_generado`, que permitía apuntar el PDF de cualquier cotización a
+un archivo ajeno. Y el registro público de usuarios estaba encendido. Los tres
+cerrados y verificados; `auth.users` sigue en 1, nadie se coló. El bot se
+probó después de los cambios y contesta. Se crearon `tecnicos`, `visitas`,
+`visita_tecnicos` y `visita_eventos`. Ese día el panel no se tocó desde el
+otro chat. **Corrección del 16 de septiembre:** esta entrada decía que
+producción seguía con la versión del 7; es falso. El 14 se desplegaron y
+verificaron contra producción Órdenes, Prospectos y el tema claro (ver la
+entrada del 14). El otro chat no podía saberlo. La entrada citaba un detalle
+en `~/Downloads/bitacora-15-septiembre.md`, que no existe.
+
+**15 de septiembre de 2026 — corrección importante: `crear_orden_de_cotizacion`
+SÍ existe en la base.** Verificado contra `pg_proc`. Las entradas del 10 y del
+14 de septiembre decían lo contrario y estaban mal: se dedujo de que
+`grep -rn "\.rpc(" src` devolviera cero, que solo prueba que el panel no la
+llama. Nunca se comprobó contra la base. La función es `security definer`, con
+`search_path` fijo, sin permiso de ejecución para `anon`, valida que la
+cotización exista, esté `aprobada` y no tenga ya una orden. O sea que el
+objetivo "de la cotización aprobada a la orden agendada" **no está bloqueado
+del lado de la base**: lo único que falta es conectar el botón en el panel.
+
 **14 de septiembre de 2026 (cierre del día) — producción ya no es la del 7 de
 septiembre; esto reemplaza el párrafo siguiente.** Se desplegaron tres
 commits más: `b9aea4a` (bitácora), `667542b` (Órdenes ya no se crea sin
@@ -296,6 +322,38 @@ Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
 
+**15 de septiembre de 2026 — paso 0 de seguridad, limpieza de
+`ordenes_trabajo` y tablas de la agenda.** Sin commits: todo es base de datos
+y configuración de Supabase. La tanda venía de
+`~/Downloads/agenda-seguridad-para-el-chat2.md`.
+
+Se conectó el conector oficial de Supabase, que cambia cómo se trabaja: se lee
+el esquema directo en vez de copiar y pegar consultas. Los advisors de
+seguridad de Supabase fueron los que destaparon los huecos, y llevaban ahí
+desde siempre sin que nadie los mirara.
+
+**Huecos cerrados.** RLS y `revoke` en `bot_ventas` y `recordatorios`, que
+estaban abiertas a `anon` con permisos completos y 3 filas de datos personales
+adentro. `revoke execute` en las 30 funciones que `anon` podía ejecutar — la
+peor, `marcar_pdf_generado`. Y apagado el registro público de usuarios en
+Supabase Auth.
+
+**`ordenes_trabajo`.** Se borraron `hora_inicio`, `duracion_min` y
+`tecnico_id`, que sí se habían aplicado pese a lo que decía la bitácora y que
+el modelo nuevo deja sin sentido. Ninguna tenía dato puesto por nadie —ojo:
+`duracion_min` tenía `default 120`, así que todas las filas la traían llena
+sola, que es peor que vacía—. `estado` y `cotizacion_id` pasaron a `not null`,
+y se agregó índice único en `cotizacion_id` porque la regla "una cotización,
+una orden" vivía solo dentro de una función, con rendija de concurrencia.
+
+**Agenda.** Creadas `tecnicos`, `visitas`, `visita_tecnicos` y
+`visita_eventos`. La orden es lo que se vendió; la visita es la cita y puede
+existir sin orden. Los técnicos se asignan a la visita, no a la orden. Las
+visitas no se borran y los eventos no se editan: la base lo impide con
+`revoke`, no solo la interfaz. Se agregaron cuatro `revoke all from anon` que
+no traía el documento original, porque Supabase otorga permisos a `anon` en
+toda tabla nueva de `public` — así nacieron los dos huecos de arriba.
+
 **14 de septiembre de 2026 (cierre del día) — tres commits desplegados y
 diseño de agenda/usuarios/firma con el arquitecto.**
 
@@ -476,6 +534,39 @@ datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
 
+**Revocar a `anon` no sirve si el permiso viene de `PUBLIC`.** El ACL muestra
+`=X/postgres`: esa entrada sin nombre delante es `PUBLIC`, todos los roles, y
+`anon` hereda de ahí. Postgres otorga `EXECUTE` a `PUBLIC` en toda función
+nueva. Hay que revocarle a `PUBLIC` explícitamente. Un `revoke ... from anon`
+solo, no cambia nada y parece que sí.
+
+**Supabase otorga permisos a `anon` en toda tabla nueva de `public`.** Por eso
+una tabla creada sin pensarlo nace legible desde internet. Toda tabla nueva
+lleva RLS activado **y** `revoke all from anon`.
+
+**Un `CHECK` deja pasar `NULL` por definición.** Una columna con CHECK de
+valores válidos pero nullable acepta nulos, y esa fila no aparece en ningún
+filtro por ese campo.
+
+**Una columna nueva con `default` llena todas las filas existentes.** Queda un
+dato que nadie puso y que se ve verdadero. Para saber si alguien la usó de
+verdad hay que contar con `filter (where col is distinct from <default>)`, no
+con `count(col)`.
+
+**Cada mitad solo afirma lo que puede comprobar.** Claude Code verifica el
+panel y producción (git, curl sobre los archivos servidos); el otro chat
+verifica la base (conector de Supabase, `pg_proc`, `information_schema`). Lo
+que una mitad dice de la otra se escribe como "según X, sin verificar", y así
+se copia a la bitácora. Casi todas las contradicciones de esta bitácora
+salieron de afirmar sobre la mitad ajena: el 9 Claude Code dio por inexistente
+una función por un grep del panel; el 11 Watson dio por no subido un commit que
+sí estaba; el 15 el otro chat dio producción por la del 7 sin saber de los
+despliegues del 14 (regla fijada el 16 de septiembre).
+
+**`grep` sobre el panel no prueba nada sobre la base.** Que `grep -rn "\.rpc("
+src` devuelva cero significa que el panel no llama funciones, no que las
+funciones no existan. Confundirlo costó dos entradas de bitácora equivocadas.
+
 **Un `.git/index.lock` huérfano bloquea todos los commits sin avisar la
 causa real.** El mensaje dice "another git process seems to be running", que
 suena a que hay que esperar. El del 14 de septiembre estaba vacío, era del
@@ -598,6 +689,29 @@ terminal.
   los hashes y no vale la pena por algo cosmético (8 de septiembre de 2026).
 
 ## Pendientes conocidos
+
+**15 de septiembre de 2026.**
+
+**Cerrado hoy:** todo el paso 0 de seguridad salvo el token de Meta, la
+limpieza de `ordenes_trabajo`, las verificaciones V1 a V12 y las tablas de la
+agenda.
+
+**Corrección a esta lista, por segunda vez en dos días:** `crear_orden_de_cotizacion`
+y la tabla `pagos` **ya existen**, con sus funciones `registrar_pago`,
+`cancelar_pago`, `recalcular_cobranza` y `pagos_folio`. Estaban aquí como
+pendientes. Hay que revisar qué más del diseño de cobranza está aplicado: la
+base va por delante de los documentos.
+
+**Agregado del lado de la base:** crear `aprobada_at`, `rechazada_at` y
+`motivo_rechazo` en `cotizaciones`, que resultaron no existir; hacer que
+`precio_unitario` lo ponga la base desde el producto y no el navegador; fijar
+`search_path` en las 26 funciones que no lo traen; encender la protección de
+contraseñas filtradas cuando entren más usuarios; e instalar `btree_gist` si
+se quiere que la base impida empalmes de visitas.
+
+**Pregunta abierta para Marcos:** el bucket `Productos` de storage es público.
+Probablemente a propósito, porque las fotos van en los PDFs a clientes, pero
+falta confirmarlo para anotarlo como decisión.
 
 **14 de septiembre de 2026 (cierre del día) — lo que dejó la sesión de
 agenda/usuarios/firma.**
