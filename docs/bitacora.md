@@ -2,6 +2,23 @@
 
 ## Estado actual
 
+**6 de octubre de 2026 (tarde y noche) — hay un hueco de seguridad abierto: los
+webhooks de n8n no piden autenticación, y solo se cerró la mitad del
+camino.** Verificado por Claude Code (copia de solo lectura de la base de n8n
+en el VPS, borrada al terminar; más peticiones GET públicas; no se mandó ningún
+POST). Todos los webhooks publicados tienen `authentication: none`:
+`zentec-entrada` y `zentec-baileys` (ambos en `zentec-bot-final`), `admin`,
+`cotizar`, `alerta-zentec` y `zentec-whatsapp` (`zentec-meta-entrada`; su POST
+no valida `X-Hub-Signature-256`). El bot decide quién es administrador solo por
+el número del mensaje, así que un POST falso con el número de Marcos puede
+entrar al modo admin; no se encontraron señales de abuso, pero n8n solo guarda
+ejecuciones desde el 23 sep. Lo hecho hasta ahora: existe `ZENTEC_WEBHOOK_SECRET`
+en `/opt/zentec-tienda/.env` y `run_sync.sh` ya manda `X-Zentec-Clave`, pero
+**ningún webhook la exige todavía**. El plan (dos fases) no está aplicado.
+Detalle en Decisiones y Pendientes. Además: `zentec-meta-entrada` solo procesa
+mensajes `text` (ignora botones y `statuses`) y tiene una rama muerta del
+autopublicador de Facebook.
+
 **6 de octubre de 2026 — la alerta de solicitud lista entregó su primer
 mensaje, tras corregir un JSON roto en `Alertar a Marcos`.** Verificado por
 Claude Code en la base y en el VPS; lo de WhatsApp es según Marcos. La
@@ -152,6 +169,35 @@ y arquitectura), `zentec-marketing` (publicidad digital) y `watson` (esta
 bitácora).
 
 ## Decisiones tomadas
+
+**6 de octubre de 2026 (tarde) — primero la seguridad, después la agenda
+automática.** Decisión de Marcos. Razón: el hueco de los webhooks permite
+suplantar al administrador, y la agenda daría al bot más poder (apartar
+horario).
+
+**6 de octubre de 2026 (tarde) — reglas de la agenda automática.** Decisión de
+Marcos: el bot aparta **solo levantamientos**, como **pre-reserva** que Marcos
+confirma; un levantamiento dura **2 horas**; horario de **8:00 a 20:00 todos
+los días**. Razón registrada: que nada quede apartado sin que Marcos lo
+confirme. Plantillas de cita (confirmación, recordatorio): Marcos cree que la
+biblioteca de plantillas predeterminadas de Meta ya las trae. **Sin
+verificar**: falta que inicie sesión en WhatsApp Manager y las busque.
+
+**6 de octubre de 2026 (tarde) — plan en dos fases para cerrar los webhooks
+(no aplicado).** Fase 1: una clave compartida en el encabezado `X-Zentec-Clave`,
+por credencial Header Auth de n8n llamada `Webhooks internos Zentec`. Orden en
+dos pasos a propósito: primero que quienes llaman (`Pasar al bot`, `Ir a Admin`,
+`Disparar Cotizador`) la manden y se publique; después que `zentec-entrada`,
+`admin`, `cotizar` y `alerta-zentec` la exijan, y borrar `zentec-baileys` con su
+nodo Code. Si se exige antes de que la manden, el bot se cae. Fase 2: validar
+`X-Hub-Signature-256` en `zentec-whatsapp` con el App Secret de Meta. La fase 1
+sola no cierra la suplantación: un POST falso con forma de mensaje de Meta a
+`zentec-whatsapp` pasa al bot con la clave interna. La fase 2 exige cambiar el
+compose de n8n (`/docker/n8n`) y reiniciar el contenedor (unos segundos sin
+servicio), porque el nodo Code no tiene `crypto` (`NODE_FUNCTION_ALLOW_BUILTIN`
+sin definir) y el secreto no debe quedar escrito en un nodo. Diseño exacto
+pendiente. Descartado: dejar los webhooks abiertos por ser solo de `localhost`
+(ver trampas).
 
 **5 de octubre de 2026 — Claude Code también se encarga de n8n y del VPS;
 Marcos revisa y publica los cambios a producción.** Decisión de Marcos. Cambia
@@ -395,6 +441,31 @@ desactualizado. Verificado contra `information_schema` en el commit 4c7156b.
 Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
+
+**6 de octubre de 2026 (tarde y noche) — revisión de seguridad de n8n y primer
+paso de la clave interna.** Sin commits del panel.
+- **Verificado por Claude Code:** la revisión descrita en Estado actual. Quién
+  llama a cada webhook: `Pasar al bot` (meta-entrada) llama a `zentec-entrada`;
+  `Ir a Admin` (bot-final) a `admin`; `Disparar Cotizador` (bot-final) a
+  `cotizar`; `alerta-zentec` no la llama ningún flujo, ni el panel, ni la base,
+  sino `/opt/zentec-tienda/run_sync.sh` (cron del VPS, 9:00) con la variable
+  `ZENTEC_ALERTA_URL` del `.env`. Eso explica la plantilla `alerta_sincronizacion`.
+  GET a `zentec-entrada` y `zentec-baileys` responde 404 "not registered for
+  GET" (la ruta existe y acepta POST); `zentec-whatsapp` responde 403.
+- **Marcos** generó en el VPS la clave y la agregó como `ZENTEC_WEBHOOK_SECRET`
+  en `/opt/zentec-tienda/.env` (respaldo `.env.respaldo-20261006`). El valor no
+  pasó por Claude Code. **Verificado por Claude Code:** una sola línea con 64
+  caracteres hexadecimales, permisos `-rw-------`, y el script carga `.env` con
+  `set -a`.
+- **Claude Code** modificó `/opt/zentec-tienda/run_sync.sh` para que el `curl`
+  del aviso mande `X-Zentec-Clave: ${ZENTEC_WEBHOOK_SECRET:-}` (respaldo
+  `run_sync.sh.respaldo-20261006`; `bash -n` correcto; conserva permiso de
+  ejecución). No tiene efecto hasta que el webhook exija la clave.
+- Otros hallazgos de `zentec-meta-entrada`: solo procesa `text`, ignora
+  `button`/`interactive`, descarta `statuses` y no evita procesar dos veces el
+  mismo `message_id`; los botones de las plantillas no funcionarán hasta que lea
+  esos tipos. La rama `If → Switch → Update row(s)` del autopublicador de
+  Facebook no tiene entrada conectada: está muerta.
 
 **6 de octubre de 2026 — se publica la corrección del nodo `Alertar a Marcos`
 y se reintenta la ejecución 2204.** Sin commits del panel: todo es n8n.
@@ -718,6 +789,29 @@ datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
 
+**Un webhook de n8n sin autenticación es público aunque solo lo llame otro
+flujo por `localhost`.** La ruta `/webhook/...` igual se publica por Traefik.
+Los webhooks internos estuvieron abiertos a internet sin que nadie lo
+sospechara (6 de octubre de 2026).
+
+**`alerta-zentec` tenía dueño y no se sabía: el aviso de fallas de la
+sincronización de la tienda.** Se buscó en n8n, el panel y la base, y no estaba
+en ninguno; lo llama `/opt/zentec-tienda/run_sync.sh` desde el cron. Responde
+la pregunta abierta "para qué se armó `zentec-alerta`" (6 de octubre de 2026).
+Consecuencia: está rota desde el 28 sep (error 132001) y, mientras tanto, las
+fallas de la sincronización no avisan a nadie.
+
+**El control de permisos de Claude Code no le deja escribir secretos en
+archivos como `.env`.** Marcos genera el valor en su terminal y lo manda al
+portapapeles con `pbcopy`, sin que aparezca en pantalla ni en el chat. Para
+copiar la clave sin verla: `ssh` al VPS, `grep` de la línea `ZENTEC_WEBHOOK_SECRET`
+en `/opt/zentec-tienda/.env`, `cut` y `pbcopy`.
+
+**El control de permisos tampoco deja aplicar a producción un cambio que Marcos
+no ha visto** (guardar o publicar en n8n), ni hacer push de un commit que
+incluye cambios ajenos. Por eso los push de `5ad2af6` y de la entrada de esta
+noche los hace Marcos.
+
 **En n8n 2.x, guardar no es publicar.** El bot corre la versión publicada
 (`activeVersionId`). Aquí el borrador ya estaba corregido y el bot seguía
 corriendo la versión rota del 16 de septiembre, así que no cambiaba nada en
@@ -946,6 +1040,32 @@ terminal.
   los hashes y no vale la pena por algo cosmético (8 de septiembre de 2026).
 
 ## Pendientes conocidos
+
+**6 de octubre de 2026 (noche).** Reemplaza el orden de los pendientes del
+mismo día (abajo) y responde uno: `zentec-alerta` es el aviso de la
+sincronización de la tienda (`run_sync.sh`). En orden:
+
+1. **Fase 1 de seguridad:** Marcos crea la credencial Header Auth `Webhooks
+   internos Zentec` (Name `X-Zentec-Clave`, Value igual a `ZENTEC_WEBHOOK_SECRET`);
+   Claude Code prepara en el editor que los tres que llaman la manden y Marcos
+   publica; después se exige en `zentec-entrada`, `admin`, `cotizar` y
+   `alerta-zentec`, se borra `zentec-baileys` con su nodo Code, y Marcos
+   publica; se prueba que sin clave se rechace y que el bot siga contestando.
+2. **Fase 2:** firma `X-Hub-Signature-256` en `zentec-whatsapp`. Falta el App
+   Secret de Meta (Marcos lo copia) y el cambio de compose con reinicio.
+3. **Plantillas de cita** en WhatsApp Manager (sin verificar si existen).
+4. **Agenda automática por fases**, según la propuesta del arquitecto del 6 oct:
+   tablas de horario, bloqueos y configuración por tipo; `bot_huecos`;
+   `bot_agendar` con candado y estado `por_confirmar`; botones Confirmar y
+   Rechazar en el panel; rama de n8n con el interruptor apagado. Antes de
+   exponer la agenda al bot, `zentec-meta-entrada` debe leer botones y evitar
+   procesar dos veces el mismo mensaje.
+5. **Siguen pendientes:** revocar `TRUNCATE` a `authenticated` en las tablas de
+   agenda; conector de Supabase en solo lectura; arreglar o apagar
+   `zentec-alerta` (plantilla `alerta_sincronizacion` inexistente en Meta,
+   error 132001); contestar a Heber y a Alejandro.
+6. **Push** de `5ad2af6` y del commit de esta entrada: Marcos los revisa y los
+   sube.
 
 **6 de octubre de 2026.**
 
