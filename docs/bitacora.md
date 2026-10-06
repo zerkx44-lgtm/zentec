@@ -2,6 +2,40 @@
 
 ## Estado actual
 
+**6 de octubre de 2026 — la alerta de solicitud lista entregó su primer
+mensaje, tras corregir un JSON roto en `Alertar a Marcos`.** Verificado por
+Claude Code en la base y en el VPS; lo de WhatsApp es según Marcos. La
+ejecución 2237 (retry de la 2204, la solicitud de Heber Rosales) terminó con
+éxito y `bot_solicitudes.alertada_at` de esa solicitud quedó en el 6 oct a las
+16:13. Según Marcos, la alerta le llegó a su WhatsApp; de eso se deduce, sin
+verificarlo en Meta, que `solicitud_lista` está aprobada en `es_MX`. La versión
+publicada de `zentec-bot-final` ya trae la corrección. Sigue roto
+`zentec-alerta` (alerta genérica de fallas, plantilla `alerta_sincronizacion`,
+error de Meta `132001` en su única ejecución, 28 sep). Estado de las
+solicitudes que se quedaron sin respuesta: la COT-1040 (Heber, $2,900 sin IVA)
+sigue `en_revision` y sin enviar; la de Alejandro Castrejón (17 sep) cerró sin
+cotización. Workflows activos en n8n 2.9.4: `zentec-bot-final`,
+`zentec-meta-entrada` (del 28 sep, sin razón registrada en esta bitácora),
+`zentec-alerta`, `zentec-cotizador`, `zentec-admin` y `ZENTEC | Autopublicador
+FB | BORRADOR SEGURO`. Claude Code ahora también trabaja n8n y el VPS (ver
+decisión del 5 de octubre).
+
+**16 de septiembre de 2026 (bloque de n8n/Meta) — se encontró por qué la
+alerta no podía entregar nunca, y el token de Meta quedó rotado.** La alerta
+de solicitud lista **sigue sin entregar un solo mensaje**. La causa raíz del
+error `(#132001)` era que la plantilla `solicitud_lista` vivía en la WABA
+`Zentec` (asset `2874116062937978`), que no tiene ningún número telefónico,
+mientras que el número que envía —`1323834807479667`, +52 1 744 391 4902—
+pertenece a la WABA **Zentec Inc** (`1034497192952576`). Un número solo puede
+mandar plantillas de su propia WABA. La plantilla se volvió a crear en Zentec
+Inc y está en revisión. Falta, cuando Meta apruebe: regresar
+`"language": { "code": "es" }` a `"es_MX"` en el nodo `Alertar a Marcos`,
+guardar **y publicar**, y correr una solicitud real verificando
+`bot_solicitudes.alertada_at`. El token de Meta ya está rotado y en una
+credencial Header Auth, con lo que se cierra el pendiente más urgente que
+venía del 14. Este chat no tocó la base ni el panel. Detalle en
+`~/Downloads/bitacora-16-septiembre.md`.
+
 **16 de septiembre de 2026 — quedó construida la pantalla Agenda y conectado
 el botón que genera la orden desde una cotización aprobada.** Verificado por
 Claude Code contra el código y contra producción. `src/pages/Agenda.jsx`
@@ -118,6 +152,21 @@ y arquitectura), `zentec-marketing` (publicidad digital) y `watson` (esta
 bitácora).
 
 ## Decisiones tomadas
+
+**5 de octubre de 2026 — Claude Code también se encarga de n8n y del VPS;
+Marcos revisa y publica los cambios a producción.** Decisión de Marcos. Cambia
+la división "dos chats, dos ámbitos" del 7 de septiembre, que dejaba n8n en el
+otro chat. Lo que no cambia: nada llega a producción sin que Marcos lo vea y lo
+publique. Razón registrada: el diagnóstico de este caso exigía leer n8n y el
+VPS, y repartirlo entre dos chats no permitía hacerlo de punta a punta.
+
+**5 de octubre de 2026 — el conector de Supabase de Claude Code está activo y
+se usó solo para leer, pero no está en modo solo lectura.** Expone
+`apply_migration` y `execute_sql`, así que nada técnico impide escribir. Sigue
+en pie lo acordado: el esquema se cambia solo con decisión explícita. Falta
+ponerlo en solo lectura (ver Pendientes). Esto deja sin cumplir por
+configuración la decisión del 16 de septiembre ("solo lectura"), que entonces
+no se pudo probar.
 
 **16 de septiembre de 2026 — si se usa el conector de Supabase desde Claude
 Code, es solo lectura; el esquema se sigue cambiando únicamente desde el otro
@@ -346,6 +395,44 @@ desactualizado. Verificado contra `information_schema` en el commit 4c7156b.
 Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
+
+**6 de octubre de 2026 — se publica la corrección del nodo `Alertar a Marcos`
+y se reintenta la ejecución 2204.** Sin commits del panel: todo es n8n.
+Claude Code reemplazó el JSON Body por `JSON.stringify({...})`, el mismo
+formato del nodo de `zentec-alerta`, con `code: 'es_MX'`. El borrador quedó
+guardado el 5 oct a las 21:25 (México); no hay registro de quién guardó. Antes
+de publicar, Claude Code verificó que el borrador solo difería de la versión
+publicada en ese nodo y que las conexiones eran idénticas. Marcos publicó el 6
+oct y Claude Code verificó que la versión activa ya trae la corrección. Marcos
+hizo el Retry de la 2204: la ejecución 2237 terminó con éxito y `alertada_at`
+quedó en el 6 oct 16:13.
+
+**5 de octubre de 2026 — se descubre y diagnostica que la alerta nunca se
+completó.** Sin cambios en el panel. Marcos supo ese día que Heber Rosales
+había pedido cotización el 29 sep (14:43; cableado estructurado, dos equipos,
+unos 60 m, oficinas en Playa Diamante) y nadie le avisó. Verificado por Claude
+Code contra la base: se generó la COT-1040 por $2,900 sin IVA, quedó
+`en_revision` y no se envió; y `alertada_at` estaba vacío en las 10 solicitudes
+de los últimos 30 días. Verificado en el VPS (copia de la SQLite de n8n en
+`/tmp`, borrada al terminar): las ejecuciones 2081 (23 sep, prueba de Marcos) y
+2204 (29 sep, Heber) fallaron en `Alertar a Marcos` con `JSON parameter needs
+to be valid JSON`. El JSON Body tenía tres errores: faltaba una coma después de
+`language` (la que lo hacía tronar); el idioma decía `es` y no `es_MX`; y
+llevaba `"={{ $json.destino }}"`, con un `=` dentro de las comillas que se
+habría mandado literal. Los nodos anteriores funcionaban (los datos de Heber
+llegaron completos y el destino salió como `5217444014888`); la cotización al
+cliente no se vio afectada.
+
+Segunda causa, independiente del JSON: la ventana de 24 horas. El último
+mensaje de Marcos al bot fue el 28 sep a las 11:09 y la COT-1040 se creó el 29
+a las 14:48, así que un aviso en texto libre a su número no habría sido
+entregado por Meta. Es la razón de que la alerta vaya por plantilla.
+
+Descartado tras revisar: el modo admin no falló. Solo se activa con sesión
+abierta o con la palabra clave `ultra zentec/`; el "APROBAR" del 28 sep, sin
+sesión, se procesó como mensaje de cliente, como está diseñado. También se
+descartó que el `queryReplacement` separado por comas cortara mensajes con
+comas: en 6 ejecuciones reales el texto llegó completo.
 
 **16 de septiembre de 2026 — tres commits: botón "Generar orden", "Sin
 cotización" fuera también al editar, y la pantalla Agenda.**
@@ -631,6 +718,72 @@ datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
 
+**En n8n 2.x, guardar no es publicar.** El bot corre la versión publicada
+(`activeVersionId`). Aquí el borrador ya estaba corregido y el bot seguía
+corriendo la versión rota del 16 de septiembre, así que no cambiaba nada en
+producción (5 de octubre de 2026). Es la misma trampa del 16 de septiembre
+vista desde el otro lado: allá los nodos nuevos no corrían; aquí un arreglo
+quedaba invisible.
+
+**En el JSON Body de n8n no se mezcla `={...}` con `"={{ }}"` dentro de
+comillas.** El `=` queda dentro del texto y se manda tal cual, y una coma
+olvidada tumba el nodo. Usar `={{ JSON.stringify({...}) }}` (5 de octubre de 2026).
+
+**La alerta llevaba al menos 13 días sin entregar nada y nadie lo supo.** Entre
+el 23 sep (primera ejecución con error) y el 6 oct, `alertada_at` estuvo vacío
+en todas las solicitudes y no había nada que avisara de que la alerta fallaba.
+Una alerta sin vigilancia falla en silencio. La solicitud de Heber esperó 7
+días sin respuesta. Hoy no hay una alerta de que la alerta falló (y la genérica, `zentec-alerta`,
+también está rota).
+
+**SSH desde Claude Code.** La llave tiene contraseña. Marcos la carga en su
+terminal con `ssh-add -t 8h ~/.ssh/id_ed25519` y Claude Code solo la alcanza
+ejecutando fuera de su entorno aislado. La llave expira; si falla con
+`Permission denied (publickey)`, hay que cargarla de nuevo (5 de octubre de
+2026).
+
+**n8n guarda pocas ejecuciones.** De `zentec-bot-final` solo había desde el 23
+de septiembre; lo anterior no se puede diagnosticar. Por eso no se sabe qué
+pasó con las solicitudes de antes, entre ellas la de Alejandro Castrejón (17
+sep, cerrada sin cotización; causa sin establecer) (5 de octubre de 2026).
+
+**`GENERIC_TIMEZONE` de n8n es `Europe/Berlin`.** Observado en el VPS; no se
+comprobó que haya causado algún error, pero cualquier hora que n8n genere
+puede venir desfasada respecto a México. Se anota para no descubrirlo después
+(5 de octubre de 2026).
+
+**Contradicciones con lo ya registrado, sin resolver (6 de octubre de
+2026).** (1) El 16 de septiembre se anotó que el idioma `es` en el nodo era un
+cambio temporal mientras Meta aprobaba la plantilla; el diagnóstico del 5 de
+octubre lo cuenta como error del JSON. Lo que sí es seguro: ya se publicó con
+`es_MX` y la ejecución 2237 terminó con éxito. (2) El 7 de septiembre se
+decidió no autorizar la llave SSH de la Mac en el VPS; el 5 de octubre Claude
+Code entra por SSH con una llave que Marcos carga por 8 horas. No se
+registró si Marcos lo ve como excepción o como cambio de la decisión. (3) El
+16 de septiembre se registró que el conector de Supabase sería solo lectura;
+el 5 de octubre se comprobó que expone herramientas de escritura. Ninguna se
+resolvió aquí.
+
+**Las plantillas de WhatsApp pertenecen a una WABA, no a la cuenta de
+negocio.** Un número solo puede enviar plantillas creadas dentro de su propia
+WABA. Si la plantilla está en otra, Meta devuelve
+`(#132001) Template name does not exist in the translation`, que manda a
+buscar el problema en el idioma y no dice una palabra de la WABA. El 16 de
+septiembre costó la sesión entera. Hay cuatro WABAs en la cuenta de Zentec y
+tres están vacías: antes de crear una plantilla, verificar el selector de
+cuenta.
+
+**Los tokens de la pantalla "Paso 1. Probar" de Meta no sirven para
+producción.** Están ligados al número de prueba (+1 555 651-7533, phone ID
+`1145076008688562`) y no ven el número real, así que la llamada falla con
+`Object with ID '1323834807479667' does not exist` — un error que parece de
+permisos y es de token equivocado.
+
+**En n8n, los nodos del editor no corren si el flujo no está publicado.** El
+16 de septiembre la primera prueba de punta a punta no hizo absolutamente
+nada por esto: los cuatro nodos de la alerta existían, producción corría la
+versión anterior. Cada cambio en n8n se guarda **y se publica**.
+
 **El editor SQL de Supabase solo muestra el resultado del último `select`.**
 Pegar varias consultas de verificación juntas y correrlas de una vez devuelve
 solo la de hasta abajo; las anteriores se pierden sin avisar que no se
@@ -794,6 +947,32 @@ terminal.
 
 ## Pendientes conocidos
 
+**6 de octubre de 2026.**
+
+**Para Marcos:** contestar a Heber Rosales (COT-1040) y a Alejandro Castrejón
+desde su teléfono. Fuera de la ventana de 24 horas el bot no puede iniciar la
+conversación. También decir para qué se armó `zentec-alerta`.
+
+**Arreglar `zentec-alerta`** (activa, plantilla `alerta_sincronizacion`, error
+de Meta `132001 Template name does not exist in the translation` en su única
+ejecución, 28 sep; la credencial funciona, la petición llegó a Meta). Opciones:
+crear la plantilla en Meta, apuntar el nodo a una que exista, o apagar el
+flujo. No se ha hecho porque falta saber para qué se armó. Dado lo del 16 de
+septiembre, conviene revisar primero en qué WABA está.
+
+**Poner el conector de Supabase de Claude Code en solo lectura.** Hoy expone
+`apply_migration` y `execute_sql`.
+
+**En marcha:** propuesta del arquitecto para que el bot agende citas solo.
+Sin detalle registrado todavía.
+
+**Sin verificar:** que `solicitud_lista` esté aprobada en `es_MX` (solo se
+deduce de que a Marcos le llegó la alerta); y qué hizo `zentec-meta-entrada`
+desde el 28 sep.
+
+**Sigue abierto de antes:** limpieza de nodos muertos de Evolution en
+`zentec-bot-final` (14 de septiembre).
+
 **16 de septiembre de 2026.**
 
 **Cerrado hoy, del lado del panel:** el botón "Generar orden" en Cotizaciones
@@ -807,8 +986,9 @@ en su bitácora. Es lo único que falta para cerrar "el cliente que aprobó su
 cotización el 8 de septiembre sigue sin fecha de instalación" (pendiente
 abierto desde el 14).
 
-**Para el otro chat:** sigue pendiente rotar el token de Meta (lo más urgente
-desde el 14); revocar TRUNCATE en `tecnicos`, `visitas`, `visita_tecnicos` y
+**Para el otro chat:** el token de Meta **ya se rotó** el 16 de septiembre y
+está en una credencial Header Auth; ese pendiente queda cerrado. Sigue
+pendiente revocar TRUNCATE en `tecnicos`, `visitas`, `visita_tecnicos` y
 `visita_eventos` (hallazgo del 16, contradice "las visitas no se borran");
 confirmar si ya se aplicaron los `revoke` de saldo en `facturas`/
 `cotizaciones`, porque de eso depende si `Facturas.jsx` todavía guarda o si
