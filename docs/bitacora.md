@@ -2,6 +2,23 @@
 
 ## Estado actual
 
+**7 de octubre de 2026 — la alerta de solicitud lista ya no depende del PDF,
+y el paso 1 de la clave interna está publicado; el hueco de los webhooks
+sigue abierto.** Verificado por Claude Code contra la base, `credentials_entity`
+y las versiones activas de n8n. (1) Existe la credencial Header Auth `Webhooks
+internos Zentec` (encabezado `X-Zentec-Clave`, id `IldPgowfwp0ArkWx`) y
+`Pasar al bot`, `Ir a Admin` y `Disparar Cotizador` ya la mandan en la versión
+activa. Ningún webhook la **exige** todavía: falta el paso 2. (2) En
+`zentec-cotizador`, `Webhook Cotizar` responde de inmediato y `Generar PDF`
+reintenta 3 veces; en `zentec-bot-final`, `Alertar a Marcos` reintenta 3 veces y
+`Alertar a Marcos` y `Disparar Cotizador` siguen aunque fallen. **Sin verificar
+con un cliente real:** ninguna solicitud ha pasado por el flujo nuevo. (3)
+`/opt/zentec-tienda/.env` tiene una sola línea `ZENTEC_WEBHOOK_SECRET` (64
+caracteres hexadecimales, permisos `-rw-------`) tras un incidente de
+duplicado/borrado ya resuelto (ver Cambios y Cosas que ya costaron tiempo). Quedan
+en el VPS respaldos del `.env` con claves que ya no sirven. La COT-1041 (Carlos
+Pantoja Torres, $13,850, 4 partidas) sigue en `borrador` y sin PDF.
+
 **6 de octubre de 2026 (tarde y noche) — hay un hueco de seguridad abierto: los
 webhooks de n8n no piden autenticación, y solo se cerró la mitad del
 camino.** Verificado por Claude Code (copia de solo lectura de la base de n8n
@@ -169,6 +186,20 @@ y arquitectura), `zentec-marketing` (publicidad digital) y `watson` (esta
 bitácora).
 
 ## Decisiones tomadas
+
+**7 de octubre de 2026 — la alerta tiene que salir siempre y en paralelo con el
+PDF.** Decisión de Marcos, tras perder la alerta de la COT-1041 porque falló la
+generación del PDF. Se aplicó con cuatro ajustes (publicados): `Webhook Cotizar`
+con Respond = Immediately; `Generar PDF` con Retry On Fail (3 intentos, 5000 ms);
+`Alertar a Marcos` con Retry On Fail (3 intentos, 1000 ms) y On Error = Continue
+(using error output); `Disparar Cotizador` con On Error = Continue (using error
+output). La salida de error de `Alertar a Marcos` no va a ningún lado a propósito:
+si Meta falla, la solicitud no se marca y la alerta se reintenta con el siguiente
+mensaje del cliente (`Leer Solicitud para Alerta` filtra `alertada_at is null`).
+Cambiar `lastNode` por respuesta inmediata es seguro porque nada está conectado
+después de `Disparar Cotizador`: nadie usaba la respuesta. Descartado: confiar en
+la posición de los nodos en el lienzo para que la alerta corra primero (ver
+trampas). Pendiente de esta decisión: un aviso aparte cuando falle el cotizador.
 
 **6 de octubre de 2026 (tarde) — primero la seguridad, después la agenda
 automática.** Decisión de Marcos. Razón: el hueco de los webhooks permite
@@ -441,6 +472,64 @@ desactualizado. Verificado contra `information_schema` en el commit 4c7156b.
 Ver la sección de trampas para el detalle.
 
 ## Cambios, por fecha
+
+**7 de octubre de 2026 — incidente de la clave interna, paso 1 de seguridad
+publicado, y la alerta que no salió para Carlos Pantoja.** Sin commits del
+panel; todo es n8n y el VPS.
+- **Incidente de la clave (resuelto).** Marcos corrió por segunda vez el comando
+  que genera la clave (`openssl rand ... >> .env`) y quedaron dos líneas
+  `ZENTEC_WEBHOOK_SECRET` en `/opt/zentec-tienda/.env`. Luego corrió dos veces el
+  comando de limpieza (`sed '0,/.../d'`) y la segunda vez borró la que quedaba.
+  Se recuperó desde `.env.antes-limpieza`, que guardaba justo la clave nueva.
+  **Verificado por Claude Code**, sin leer valores: `.env` tiene exactamente una
+  línea de 64 caracteres hexadecimales y permisos `-rw-------`; al cargarlo con
+  `set -a` la variable mide 64; el portapapeles tenía 64 caracteres hexadecimales
+  cuando Marcos pegó la clave en n8n. Atención: `.env.respaldo-20261007` guarda la
+  clave **vieja** y `.env.respaldo-20261006` no tiene ninguna; hay que borrar los
+  que tengan claves que ya no se usan. Causa: el botón "Run" de los bloques de
+  comando del chat volvía a ejecutar bloques anteriores. El comando de
+  restauración (`cp -p .env.antes-limpieza .env && grep ... | pbcopy`) sí se puede
+  repetir sin efectos.
+- **Seguridad, fase 1, paso 1 (publicado).** Marcos creó en n8n la credencial
+  Header Auth `Webhooks internos Zentec` (`X-Zentec-Clave`, id
+  `IldPgowfwp0ArkWx`); **verificado por Claude Code** en `credentials_entity`.
+  Claude Code configuró en el editor que `Pasar al bot` (`zentec-meta-entrada`),
+  `Ir a Admin` y `Disparar Cotizador` (`zentec-bot-final`) usen Authentication →
+  Generic Credential Type → Header Auth. n8n 2.9 guardó solo el borrador.
+  **Verificado por Claude Code** antes de publicar: solo cambiaban
+  `authentication`/`genericAuthType` y la credencial de esos tres nodos, sin nodos
+  nuevos y con las mismas conexiones. Marcos publicó los dos flujos; **verificado
+  por Claude Code** que la versión activa de los tres nodos usa la credencial.
+  Esto deja hecho el punto 1 (primera mitad) de los pendientes del 6 oct (noche);
+  el paso 2 sigue sin hacerse.
+- **Carlos Pantoja Torres, solicitud sin alerta.** **Verificado por Claude Code
+  contra la base y n8n:** cerró su solicitud a las 15:31 (México): CCTV, 7
+  cámaras, equipo e instalación (número terminado en 7700). Se creó la COT-1041
+  por $13,850, 4 partidas, `borrador`, sin PDF, con `alertada_at` vacío. La
+  ejecución 2264 de `zentec-bot-final` terminó en error en `Disparar Cotizador`
+  porque el cotizador (ejecución 2266) falló en `Generar PDF` con `Navigation
+  timeout of 30000 ms exceeded`. El servicio PDF (`n8n-pdf-1`, Puppeteer) usa
+  `setContent(..., {waitUntil: 'networkidle0', timeout: 30000})` y espera a que
+  carguen las imágenes del bucket público `Productos`.
+- **Por qué no salió la alerta.** Con `executionOrder: v1`, n8n corre las ramas de
+  `Guardar Venta` de arriba a abajo según su posición: `Cotizar?` está en y=144 y
+  `Leer Solicitud para Alerta` en y=432, así que el cotizador corría primero. Y
+  `Webhook Cotizar` respondía con `lastNode`, o sea que el bot esperaba a todo el
+  cotizador, PDF incluido. Si el PDF fallaba, se detenía la ejecución y la alerta
+  no salía, justo cuando más hacía falta.
+- **Diagnóstico posterior.** Las dos imágenes cargaron en 0.3 s desde el VPS; una
+  prueba directa al servicio PDF con datos falsos tardó 3.6 s y regresó 200. El
+  PDF de prueba `PRUEBA-DIAG-*.pdf` se borró y su URL pública responde 404.
+  Conclusión de Claude Code: falla pasajera (causa exacta del timeout: sin razón
+  registrada). Según Marcos, ya habló con Carlos y dijo que "así ya perdimos un
+  cliente".
+- **Arreglo (publicado).** Ver Decisiones del 7 oct para los cuatro ajustes.
+  **Verificado por Claude Code:** antes de publicar, los borradores solo tenían
+  esos cambios, sin nodos nuevos y con las mismas conexiones; después de publicar,
+  las versiones activas los tienen. **Sin verificar con un cliente real:** ninguna
+  solicitud ha pasado por el flujo nuevo. Resultado esperado: el cotizador
+  responde "recibido" al instante, la alerta corre segundos después de que el
+  cliente cierra y el PDF se genera por separado.
 
 **6 de octubre de 2026 (tarde y noche) — revisión de seguridad de n8n y primer
 paso de la clave interna.** Sin commits del panel.
@@ -789,6 +878,31 @@ datos reales conectados todavía.
 
 ## Cosas que ya costaron tiempo
 
+**Un comando que genera o borra secretos no se puede correr dos veces sin dañar
+algo, y el botón Run del chat lo corre otra vez sin avisar.** El 7 de octubre
+`openssl rand ... >> .env` duplicó la clave y `sed '0,/.../d'`, corrido dos
+veces, borró la que quedaba; se salvó porque existía `.env.antes-limpieza`.
+Regla: esos comandos deben poder repetirse sin efectos acumulados (no usar `>>`
+a ciegas, guardar respaldo antes) o advertirlo con claridad.
+
+**n8n v1 corre las ramas que salen de un mismo nodo en el orden de su posición
+en el lienzo, de arriba hacia abajo.** Si la de arriba falla, la de abajo nunca
+corre. La alerta de la COT-1041 no salió por eso (7 de octubre de 2026). Para lo
+que tiene que pasar siempre: On Error = Continue y webhooks que respondan de
+inmediato; no confiar en la posición.
+
+**Un webhook con `lastNode` hace esperar a quien lo llama.** Encadenado, un
+tropiezo del PDF se convirtió en una falla de todo el bot (7 de octubre de 2026).
+
+**n8n 2.9 guarda borradores por su cuenta pero no los publica.** Cada cambio
+necesita revisión y Publish; se vio de nuevo con los nodos de la clave interna
+(7 de octubre de 2026).
+
+**Editor de n8n en el panel Browser:** usar `navigate` dentro del mismo flujo
+recarga la página y puede perder cambios. Para pasar de un nodo a otro sin
+recargar sirve `history.pushState` + `popstate`. La emulación de tamaño de
+pantalla desacomoda los clics (7 de octubre de 2026).
+
 **Un webhook de n8n sin autenticación es público aunque solo lo llame otro
 flujo por `localhost`.** La ruta `/webhook/...` igual se publica por Traefik.
 Los webhooks internos estuvieron abiertos a internet sin que nadie lo
@@ -1040,6 +1154,30 @@ terminal.
   los hashes y no vale la pena por algo cosmético (8 de septiembre de 2026).
 
 ## Pendientes conocidos
+
+**7 de octubre de 2026.** Reemplaza el orden del 6 oct (noche): el punto 1 está
+hecho a medias (el paso 1, que quienes llaman manden la clave, ya está
+publicado; ver Cambios del 7 oct). Lo demás sigue. En orden:
+
+1. **Seguridad, fase 1, paso 2:** que `zentec-entrada`, `admin`, `cotizar` y
+   `alerta-zentec` exijan `Webhooks internos Zentec`; borrar `zentec-baileys` y su
+   nodo Code; probar que una petición sin clave sea rechazada y que el bot siga
+   contestando. `run_sync.sh` ya manda la clave.
+2. **Fase 2:** firma `X-Hub-Signature-256` en `zentec-whatsapp`. Mientras no
+   esté, la suplantación sigue siendo posible.
+3. **Verificar con la siguiente solicitud real** que la alerta llegue antes que
+   el PDF (los cambios del 7 oct no se han probado con un cliente).
+4. **Borrar los respaldos del `.env` con claves viejas** (`.env.respaldo-20261007`)
+   y, cuando ya no haga falta, `.env.antes-limpieza`.
+5. **Plantillas de cita en WhatsApp Manager:** Marcos inició sesión, pero no se
+   llegó a revisar.
+6. **Agenda automática**, por fases, como ya está registrado.
+7. **Siguen pendientes:** revocar `TRUNCATE`, poner el conector de Supabase en
+   solo lectura y arreglar o apagar `zentec-alerta`.
+8. **Opcional:** un aviso aparte cuando el cotizador falle, conectado a la salida
+   de error de `Disparar Cotizador` o del cotizador. Necesita plantilla aprobada.
+9. **COT-1041 (Carlos Pantoja Torres):** sigue en `borrador` y sin PDF; falta
+   regenerarla y contestarle (decisión de qué hacer: sin razón registrada).
 
 **6 de octubre de 2026 (noche).** Reemplaza el orden de los pendientes del
 mismo día (abajo) y responde uno: `zentec-alerta` es el aviso de la
